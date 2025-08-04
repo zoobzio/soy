@@ -1,0 +1,1379 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>cereal: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/zoobzio/cereal/cereal.go (0.0%)</option>
+				
+				<option value="file1">github.com/zoobzio/cereal/codec.go (0.0%)</option>
+				
+				<option value="file2">github.com/zoobzio/cereal/provider.go (0.0%)</option>
+				
+				<option value="file3">github.com/zoobzio/cereal/providers/file/file.go (48.3%)</option>
+				
+				<option value="file4">github.com/zoobzio/cereal/providers/memory/memory.go (81.7%)</option>
+				
+				<option value="file5">github.com/zoobzio/cereal/service.go (0.0%)</option>
+				
+				<option value="file6">github.com/zoobzio/cereal/uri.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package cereal
+
+import (
+        "context"
+        "fmt"
+
+        "sentinel"
+)
+
+// Get retrieves and decodes a value from the specified URI.
+func Get[T any](ctx context.Context, uri string) (T, error) <span class="cov0" title="0">{
+        var zero T
+
+        // Parse URI
+        parsed, err := ParseURI(uri)
+        if err != nil </span><span class="cov0" title="0">{
+                return zero, fmt.Errorf("invalid URI: %w", err)
+        }</span>
+
+        // Get provider
+        <span class="cov0" title="0">provider, ok := defaultService.GetProvider(parsed.Provider())
+        if !ok </span><span class="cov0" title="0">{
+                return zero, fmt.Errorf("provider %s not found", parsed.Provider())
+        }</span>
+
+        // Get raw data
+        <span class="cov0" title="0">data, err := provider.Get(ctx, parsed)
+        if err != nil </span><span class="cov0" title="0">{
+                return zero, err
+        }</span>
+
+        // Decode data
+        <span class="cov0" title="0">return decode[T](data)</span>
+}
+
+// Set encodes and stores a value at the specified URI.
+func Set[T any](ctx context.Context, uri string, value T) error <span class="cov0" title="0">{
+        // Parse URI
+        parsed, err := ParseURI(uri)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid URI: %w", err)
+        }</span>
+
+        // Get provider
+        <span class="cov0" title="0">provider, ok := defaultService.GetProvider(parsed.Provider())
+        if !ok </span><span class="cov0" title="0">{
+                return fmt.Errorf("provider %s not found", parsed.Provider())
+        }</span>
+
+        // Encode value
+        <span class="cov0" title="0">data, err := encode(value)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("encode failed: %w", err)
+        }</span>
+
+        // Store data
+        <span class="cov0" title="0">return provider.Set(ctx, parsed, data)</span>
+}
+
+// Delete removes a value at the specified URI.
+func Delete(ctx context.Context, uri string) error <span class="cov0" title="0">{
+        // Parse URI
+        parsed, err := ParseURI(uri)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid URI: %w", err)
+        }</span>
+
+        // Get provider
+        <span class="cov0" title="0">provider, ok := defaultService.GetProvider(parsed.Provider())
+        if !ok </span><span class="cov0" title="0">{
+                return fmt.Errorf("provider %s not found", parsed.Provider())
+        }</span>
+
+        <span class="cov0" title="0">return provider.Delete(ctx, parsed)</span>
+}
+
+// Exec executes an action with a payload and returns the result.
+func Exec[Result any, Payload any](ctx context.Context, uri string, payload Payload) (Result, error) <span class="cov0" title="0">{
+        var zero Result
+
+        // Parse URI
+        parsed, err := ParseURI(uri)
+        if err != nil </span><span class="cov0" title="0">{
+                return zero, fmt.Errorf("invalid URI: %w", err)
+        }</span>
+
+        // Get provider
+        <span class="cov0" title="0">provider, ok := defaultService.GetProvider(parsed.Provider())
+        if !ok </span><span class="cov0" title="0">{
+                return zero, fmt.Errorf("provider %s not found", parsed.Provider())
+        }</span>
+
+        // Encode payload
+        <span class="cov0" title="0">payloadData, err := encode(payload)
+        if err != nil </span><span class="cov0" title="0">{
+                return zero, fmt.Errorf("encode payload failed: %w", err)
+        }</span>
+
+        // Execute
+        <span class="cov0" title="0">resultData, err := provider.Execute(ctx, parsed, payloadData)
+        if err != nil </span><span class="cov0" title="0">{
+                return zero, err
+        }</span>
+
+        // Decode result
+        <span class="cov0" title="0">return decode[Result](resultData)</span>
+}
+
+// encode serializes a value to bytes using codec selection.
+func encode[T any](value T) ([]byte, error) <span class="cov0" title="0">{
+        // Get codecs from Sentinel metadata
+        codecs := getCodecs[T]()
+
+        if len(codecs) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no codecs configured for type %T", value)
+        }</span>
+
+        // Try each codec in order
+        <span class="cov0" title="0">var lastErr error
+        for _, codecName := range codecs </span><span class="cov0" title="0">{
+                codec, ok := GetCodec(codecName)
+                if !ok </span><span class="cov0" title="0">{
+                        lastErr = fmt.Errorf("codec %s not found in registry", codecName)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">data, err := codec.Encode(value)
+                if err == nil </span><span class="cov0" title="0">{
+                        return data, nil
+                }</span>
+                <span class="cov0" title="0">lastErr = err</span>
+        }
+
+        <span class="cov0" title="0">if lastErr != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("all codecs failed, last error: %w", lastErr)
+        }</span>
+        <span class="cov0" title="0">return nil, fmt.Errorf("no codecs available for type %T", value)</span>
+}
+
+// decode deserializes bytes to a value using codec selection.
+func decode[T any](data []byte) (T, error) <span class="cov0" title="0">{
+        var result T
+
+        // Get codecs from Sentinel metadata
+        codecs := getCodecs[T]()
+
+        var lastErr error
+        for _, codecName := range codecs </span><span class="cov0" title="0">{
+                codec, ok := GetCodec(codecName)
+                if !ok </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">err := codec.Decode(data, &amp;result)
+                if err == nil </span><span class="cov0" title="0">{
+                        return result, nil
+                }</span>
+                <span class="cov0" title="0">lastErr = err</span>
+        }
+
+        <span class="cov0" title="0">if lastErr != nil </span><span class="cov0" title="0">{
+                return result, fmt.Errorf("all codecs failed, last error: %w", lastErr)
+        }</span>
+        <span class="cov0" title="0">return result, fmt.Errorf("no codecs available")</span>
+}
+
+// getCodecs retrieves the codec order from Sentinel metadata.
+func getCodecs[T any]() []string <span class="cov0" title="0">{
+        // Get metadata from Sentinel
+        metadata := sentinel.Inspect[T]()
+
+        // Use codecs from metadata or fall back to defaults
+        if len(metadata.Codecs) &gt; 0 </span><span class="cov0" title="0">{
+                return metadata.Codecs
+        }</span>
+
+        <span class="cov0" title="0">return DefaultCodecs()</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package cereal
+
+import (
+        "bytes"
+        "encoding/gob"
+        "encoding/json"
+
+        "github.com/pelletier/go-toml/v2"
+        "github.com/vmihailenco/msgpack/v5"
+        "gopkg.in/yaml.v3"
+)
+
+// Codec defines the interface for data serialization/deserialization.
+type Codec interface {
+        Encode(v any) ([]byte, error)
+        Decode(data []byte, v any) error
+        Name() string
+}
+
+// JSONCodec implements Codec using standard library JSON.
+type JSONCodec struct{}
+
+func (*JSONCodec) Encode(v any) ([]byte, error) <span class="cov0" title="0">{
+        return json.Marshal(v)
+}</span>
+
+func (*JSONCodec) Decode(data []byte, v any) error <span class="cov0" title="0">{
+        return json.Unmarshal(data, v)
+}</span>
+
+func (*JSONCodec) Name() string <span class="cov0" title="0">{
+        return "json"
+}</span>
+
+// GOBCodec implements Codec using Go's gob encoding.
+type GOBCodec struct{}
+
+func (*GOBCodec) Encode(v any) ([]byte, error) <span class="cov0" title="0">{
+        var buf bytes.Buffer
+        enc := gob.NewEncoder(&amp;buf)
+        if err := enc.Encode(v); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return buf.Bytes(), nil</span>
+}
+
+func (*GOBCodec) Decode(data []byte, v any) error <span class="cov0" title="0">{
+        buf := bytes.NewReader(data)
+        dec := gob.NewDecoder(buf)
+        return dec.Decode(v)
+}</span>
+
+func (*GOBCodec) Name() string <span class="cov0" title="0">{
+        return "gob"
+}</span>
+
+// MsgpackCodec implements Codec using MessagePack (efficient binary format).
+type MsgpackCodec struct{}
+
+func (*MsgpackCodec) Encode(v any) ([]byte, error) <span class="cov0" title="0">{
+        return msgpack.Marshal(v)
+}</span>
+
+func (*MsgpackCodec) Decode(data []byte, v any) error <span class="cov0" title="0">{
+        return msgpack.Unmarshal(data, v)
+}</span>
+
+func (*MsgpackCodec) Name() string <span class="cov0" title="0">{
+        return "msgpack"
+}</span>
+
+// YAMLCodec implements Codec using YAML.
+type YAMLCodec struct{}
+
+func (*YAMLCodec) Encode(v any) ([]byte, error) <span class="cov0" title="0">{
+        return yaml.Marshal(v)
+}</span>
+
+func (*YAMLCodec) Decode(data []byte, v any) error <span class="cov0" title="0">{
+        return yaml.Unmarshal(data, v)
+}</span>
+
+func (*YAMLCodec) Name() string <span class="cov0" title="0">{
+        return "yaml"
+}</span>
+
+// TOMLCodec implements Codec using TOML.
+type TOMLCodec struct{}
+
+func (*TOMLCodec) Encode(v any) ([]byte, error) <span class="cov0" title="0">{
+        return toml.Marshal(v)
+}</span>
+
+func (*TOMLCodec) Decode(data []byte, v any) error <span class="cov0" title="0">{
+        return toml.Unmarshal(data, v)
+}</span>
+
+func (*TOMLCodec) Name() string <span class="cov0" title="0">{
+        return "toml"
+}</span>
+
+// Registry of available codecs.
+var codecRegistry = map[string]Codec{
+        "json":    &amp;JSONCodec{},
+        "gob":     &amp;GOBCodec{},
+        "msgpack": &amp;MsgpackCodec{},
+        "yaml":    &amp;YAMLCodec{},
+        "toml":    &amp;TOMLCodec{},
+}
+
+// RegisterCodec adds a new codec to the registry.
+func RegisterCodec(name string, codec Codec) <span class="cov0" title="0">{
+        codecRegistry[name] = codec
+}</span>
+
+// GetCodec retrieves a codec by name.
+func GetCodec(name string) (Codec, bool) <span class="cov0" title="0">{
+        codec, ok := codecRegistry[name]
+        return codec, ok
+}</span>
+
+// DefaultCodecs returns the default codec fallback order.
+func DefaultCodecs() []string <span class="cov0" title="0">{
+        return []string{"json"}
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package cereal
+
+import (
+        "bytes"
+        "context"
+        "errors"
+        "testing"
+)
+
+// Provider defines the common interface that all data providers must implement.
+type Provider interface {
+        // Basic CRUD operations
+        Get(ctx context.Context, uri URI) ([]byte, error)
+        Set(ctx context.Context, uri URI, data []byte) error
+        Delete(ctx context.Context, uri URI) error
+        Exists(ctx context.Context, uri URI) (bool, error)
+
+        // Batch operations
+        BatchGet(ctx context.Context, uris []URI) ([][]byte, []error)
+        BatchSet(ctx context.Context, uris []URI, data [][]byte) []error
+        BatchDelete(ctx context.Context, uris []URI) []error
+
+        // Execute an action with a payload
+        Execute(ctx context.Context, uri URI, payload []byte) ([]byte, error)
+
+        // Watch for changes
+        Sync(ctx context.Context, uri URI, callback func([]byte)) (stop func(), err error)
+
+        // Provider lifecycle
+        Close() error
+}
+
+// Use this to ensure your provider correctly implements the interface.
+func TestProvider(t *testing.T, providerName string, provider Provider) <span class="cov0" title="0">{
+        ctx := context.Background()
+        testURI := NewURI(providerName + "://test/data/item1")
+        testData := []byte("test data")
+
+        // Test Set and Get
+        t.Run("SetAndGet", func(t *testing.T) </span><span class="cov0" title="0">{
+                err := provider.Set(ctx, testURI, testData)
+                if err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Set failed: %v", err)
+                }</span>
+
+                <span class="cov0" title="0">got, err := provider.Get(ctx, testURI)
+                if err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Get failed: %v", err)
+                }</span>
+
+                <span class="cov0" title="0">if !bytes.Equal(got, testData) </span><span class="cov0" title="0">{
+                        t.Errorf("Got %q, want %q", got, testData)
+                }</span>
+        })
+
+        // Test Exists
+        <span class="cov0" title="0">t.Run("Exists", func(t *testing.T) </span><span class="cov0" title="0">{
+                exists, err := provider.Exists(ctx, testURI)
+                if err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Exists failed: %v", err)
+                }</span>
+                <span class="cov0" title="0">if !exists </span><span class="cov0" title="0">{
+                        t.Error("Expected resource to exist")
+                }</span>
+        })
+
+        // Test Delete
+        <span class="cov0" title="0">t.Run("Delete", func(t *testing.T) </span><span class="cov0" title="0">{
+                err := provider.Delete(ctx, testURI)
+                if err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Delete failed: %v", err)
+                }</span>
+
+                <span class="cov0" title="0">_, err = provider.Get(ctx, testURI)
+                if !errors.Is(err, ErrNotFound) </span><span class="cov0" title="0">{
+                        t.Errorf("Expected ErrNotFound, got %v", err)
+                }</span>
+        })
+
+        // Test Sync (if supported)
+        <span class="cov0" title="0">t.Run("Sync", func(t *testing.T) </span><span class="cov0" title="0">{
+                // Set initial data
+                syncURI := NewURI("test://sync/item")
+                syncData := []byte("initial data")
+                if err := provider.Set(ctx, syncURI, syncData); err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Failed to set sync data: %v", err)
+                }</span>
+
+                // Start syncing
+                <span class="cov0" title="0">stop, err := provider.Sync(ctx, syncURI, func(_ []byte) </span>{<span class="cov0" title="0">
+                        // Callback received
+                }</span>)
+
+                <span class="cov0" title="0">if errors.Is(err, ErrSyncNotSupported) </span><span class="cov0" title="0">{
+                        t.Skip("Provider does not support sync")
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                        t.Fatalf("Sync failed: %v", err)
+                }</span>
+                <span class="cov0" title="0">defer stop()</span>
+
+                // Wait for initial callback
+                // Note: real tests might need better synchronization
+                // This is simplified for the example
+        })
+
+        // Test Batch operations
+        <span class="cov0" title="0">t.Run("BatchOperations", func(t *testing.T) </span><span class="cov0" title="0">{
+                // Prepare test data
+                uris := []URI{
+                        NewURI(providerName + "://test/batch/item1"),
+                        NewURI(providerName + "://test/batch/item2"),
+                        NewURI(providerName + "://test/batch/item3"),
+                }
+                data := [][]byte{
+                        []byte("data1"),
+                        []byte("data2"),
+                        []byte("data3"),
+                }
+
+                // Test BatchSet
+                errs := provider.BatchSet(ctx, uris, data)
+                for i, err := range errs </span><span class="cov0" title="0">{
+                        if err != nil </span><span class="cov0" title="0">{
+                                t.Errorf("BatchSet[%d] failed: %v", i, err)
+                        }</span>
+                }
+
+                // Test BatchGet
+                <span class="cov0" title="0">results, errs := provider.BatchGet(ctx, uris)
+                for i, err := range errs </span><span class="cov0" title="0">{
+                        if err != nil </span><span class="cov0" title="0">{
+                                t.Errorf("BatchGet[%d] failed: %v", i, err)
+                        }</span>
+                        <span class="cov0" title="0">if !bytes.Equal(results[i], data[i]) </span><span class="cov0" title="0">{
+                                t.Errorf("BatchGet[%d] got %q, want %q", i, results[i], data[i])
+                        }</span>
+                }
+
+                // Test BatchDelete
+                <span class="cov0" title="0">errs = provider.BatchDelete(ctx, uris)
+                for i, err := range errs </span><span class="cov0" title="0">{
+                        if err != nil </span><span class="cov0" title="0">{
+                                t.Errorf("BatchDelete[%d] failed: %v", i, err)
+                        }</span>
+                }
+
+                // Verify deleted
+                <span class="cov0" title="0">_, errs = provider.BatchGet(ctx, uris)
+                for i, err := range errs </span><span class="cov0" title="0">{
+                        if !errors.Is(err, ErrNotFound) </span><span class="cov0" title="0">{
+                                t.Errorf("BatchGet[%d] after delete: expected ErrNotFound, got %v", i, err)
+                        }</span>
+                }
+        })
+
+        // Cleanup
+        <span class="cov0" title="0">provider.Close()</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package file
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "os"
+        "path/filepath"
+
+        "github.com/fsnotify/fsnotify"
+        "github.com/zoobzio/cereal"
+)
+
+// Provider implements cereal.Provider using filesystem storage.
+type Provider struct {
+        baseDir string
+}
+
+// New creates a new file provider with the given base directory.
+func New(baseDir string) (*Provider, error) <span class="cov8" title="1">{
+        // Ensure base directory exists
+        if err := os.MkdirAll(baseDir, 0o755); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Get absolute path
+        <span class="cov8" title="1">absPath, err := filepath.Abs(baseDir)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Provider{
+                baseDir: absPath,
+        }, nil</span>
+}
+
+// uriToPath converts a URI to a filesystem path.
+func (p *Provider) uriToPath(uri cereal.URI) string <span class="cov8" title="1">{
+        // Join namespace and path segments
+        segments := append([]string{p.baseDir, uri.Namespace()}, uri.Path()...)
+        return filepath.Join(segments...)
+}</span>
+
+// Get reads a file from disk.
+func (p *Provider) Get(_ context.Context, uri cereal.URI) ([]byte, error) <span class="cov8" title="1">{
+        path := p.uriToPath(uri)
+
+        data, err := os.ReadFile(path)
+        if err != nil </span><span class="cov8" title="1">{
+                if os.IsNotExist(err) </span><span class="cov8" title="1">{
+                        return nil, cereal.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov8" title="1">return data, nil</span>
+}
+
+// Set writes data to disk.
+func (p *Provider) Set(_ context.Context, uri cereal.URI, data []byte) error <span class="cov8" title="1">{
+        path := p.uriToPath(uri)
+
+        // Ensure directory exists
+        dir := filepath.Dir(path)
+        if err := os.MkdirAll(dir, 0o755); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return os.WriteFile(path, data, 0o600)</span>
+}
+
+// Delete removes a file from disk.
+func (p *Provider) Delete(_ context.Context, uri cereal.URI) error <span class="cov8" title="1">{
+        path := p.uriToPath(uri)
+
+        err := os.Remove(path)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return cereal.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Exists checks if a file exists.
+func (p *Provider) Exists(_ context.Context, uri cereal.URI) (bool, error) <span class="cov8" title="1">{
+        path := p.uriToPath(uri)
+
+        _, err := os.Stat(path)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return false, nil
+                }</span>
+                <span class="cov0" title="0">return false, err</span>
+        }
+
+        <span class="cov8" title="1">return true, nil</span>
+}
+
+// Execute performs an action based on the URI path.
+func (p *Provider) Execute(ctx context.Context, uri cereal.URI, payload []byte) ([]byte, error) <span class="cov0" title="0">{
+        // Route based on the last path segment
+        path := uri.Path()
+        if len(path) == 0 </span><span class="cov0" title="0">{
+                return nil, cereal.ErrNotSupported
+        }</span>
+
+        <span class="cov0" title="0">action := path[len(path)-1]
+
+        switch action </span>{
+        case "list":<span class="cov0" title="0">
+                return p.executeList(ctx, uri, payload)</span>
+        case "glob":<span class="cov0" title="0">
+                return p.executeGlob(ctx, uri, payload)</span>
+        default:<span class="cov0" title="0">
+                return nil, cereal.ErrNotSupported</span>
+        }
+}
+
+// executeList returns all files in a directory.
+func (p *Provider) executeList(_ context.Context, uri cereal.URI, payload []byte) ([]byte, error) <span class="cov0" title="0">{
+        // Build directory path from URI (namespace + path minus action)
+        path := uri.Path()
+        pathParts := []string{p.baseDir, uri.Namespace()}
+        if len(path) &gt; 1 </span><span class="cov0" title="0">{
+                pathParts = append(pathParts, path[:len(path)-1]...)
+        }</span>
+        <span class="cov0" title="0">dirPath := filepath.Join(pathParts...)
+
+        entries, err := os.ReadDir(dirPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">results := make([][]byte, 0, len(entries))
+        for _, entry := range entries </span><span class="cov0" title="0">{
+                if entry.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">filePath := filepath.Join(dirPath, entry.Name())
+                data, err := os.ReadFile(filePath)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">results = append(results, data)</span>
+        }
+
+        <span class="cov0" title="0">return json.Marshal(results)</span>
+}
+
+// executeGlob performs glob pattern matching.
+func (p *Provider) executeGlob(_ context.Context, uri cereal.URI, payload []byte) ([]byte, error) <span class="cov0" title="0">{
+        // Parse payload for glob pattern
+        var globReq struct {
+                Pattern string `json:"pattern"`
+        }
+        if err := json.Unmarshal(payload, &amp;globReq); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid glob request: %w", err)
+        }</span>
+
+        // Build base path from URI
+        <span class="cov0" title="0">path := uri.Path()
+        pathParts := []string{p.baseDir, uri.Namespace()}
+        if len(path) &gt; 1 </span><span class="cov0" title="0">{
+                pathParts = append(pathParts, path[:len(path)-1]...)
+        }</span>
+        <span class="cov0" title="0">basePath := filepath.Join(pathParts...)
+
+        // Apply pattern
+        globPattern := filepath.Join(basePath, globReq.Pattern)
+        matches, err := filepath.Glob(globPattern)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">results := make([][]byte, 0, len(matches))
+        for _, match := range matches </span><span class="cov0" title="0">{
+                // Skip directories
+                info, err := os.Stat(match)
+                if err != nil || info.IsDir() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">data, err := os.ReadFile(match)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">results = append(results, data)</span>
+        }
+
+        <span class="cov0" title="0">return json.Marshal(results)</span>
+}
+
+// Sync watches a file for changes.
+func (p *Provider) Sync(ctx context.Context, uri cereal.URI, callback func([]byte)) (func(), error) <span class="cov8" title="1">{
+        path := p.uriToPath(uri)
+
+        // Check if file exists
+        if _, err := os.Stat(path); err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil, cereal.ErrNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        // Create watcher
+        <span class="cov8" title="1">watcher, err := fsnotify.NewWatcher()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Add file to watcher
+        <span class="cov8" title="1">err = watcher.Add(path)
+        if err != nil </span><span class="cov0" title="0">{
+                watcher.Close()
+                return nil, err
+        }</span>
+
+        // Read initial content and notify
+        <span class="cov8" title="1">if data, err := os.ReadFile(path); err == nil </span><span class="cov8" title="1">{
+                go callback(data)
+        }</span>
+
+        // Start watching in goroutine
+        <span class="cov8" title="1">stopChan := make(chan struct{})
+        go func() </span><span class="cov8" title="1">{
+                for </span><span class="cov8" title="1">{
+                        select </span>{
+                        case event, ok := &lt;-watcher.Events:<span class="cov8" title="1">
+                                if !ok </span><span class="cov0" title="0">{
+                                        return
+                                }</span>
+                                // Notify on write or create events
+                                <span class="cov8" title="1">if event.Op&amp;fsnotify.Write == fsnotify.Write || event.Op&amp;fsnotify.Create == fsnotify.Create </span><span class="cov8" title="1">{
+                                        if data, err := os.ReadFile(path); err == nil </span><span class="cov8" title="1">{
+                                                callback(data)
+                                        }</span>
+                                } else<span class="cov8" title="1"> if event.Op&amp;fsnotify.Remove == fsnotify.Remove || event.Op&amp;fsnotify.Rename == fsnotify.Rename </span><span class="cov8" title="1">{
+                                        // File was deleted or renamed
+                                        callback(nil)
+                                }</span>
+                        case err, ok := &lt;-watcher.Errors:<span class="cov8" title="1">
+                                if !ok </span><span class="cov8" title="1">{
+                                        return
+                                }</span>
+                                // Log error but continue watching
+                                <span class="cov0" title="0">_ = err</span>
+                        case &lt;-stopChan:<span class="cov8" title="1">
+                                return</span>
+                        case &lt;-ctx.Done():<span class="cov0" title="0">
+                                return</span>
+                        }
+                }
+        }()
+
+        // Return stop function
+        <span class="cov8" title="1">stop := func() </span><span class="cov8" title="1">{
+                close(stopChan)
+                watcher.Close()
+        }</span>
+
+        <span class="cov8" title="1">return stop, nil</span>
+}
+
+// BatchGet reads multiple files from disk.
+func (p *Provider) BatchGet(ctx context.Context, uris []cereal.URI) ([][]byte, []error) <span class="cov8" title="1">{
+        if len(uris) == 0 </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+
+        <span class="cov8" title="1">results := make([][]byte, len(uris))
+        errors := make([]error, len(uris))
+
+        for i, uri := range uris </span><span class="cov8" title="1">{
+                data, err := p.Get(ctx, uri)
+                results[i] = data
+                errors[i] = err
+        }</span>
+
+        <span class="cov8" title="1">return results, errors</span>
+}
+
+// BatchSet writes multiple files to disk.
+func (p *Provider) BatchSet(ctx context.Context, uris []cereal.URI, data [][]byte) []error <span class="cov8" title="1">{
+        if len(uris) == 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">if len(uris) != len(data) </span><span class="cov0" title="0">{
+                // Return error for all
+                errors := make([]error, len(uris))
+                for i := range errors </span><span class="cov0" title="0">{
+                        errors[i] = fmt.Errorf("batch size mismatch: %d uris, %d data", len(uris), len(data))
+                }</span>
+                <span class="cov0" title="0">return errors</span>
+        }
+
+        <span class="cov8" title="1">errors := make([]error, len(uris))
+
+        for i, uri := range uris </span><span class="cov8" title="1">{
+                errors[i] = p.Set(ctx, uri, data[i])
+        }</span>
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+// BatchDelete removes multiple files from disk.
+func (p *Provider) BatchDelete(ctx context.Context, uris []cereal.URI) []error <span class="cov8" title="1">{
+        if len(uris) == 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">errors := make([]error, len(uris))
+
+        for i, uri := range uris </span><span class="cov8" title="1">{
+                errors[i] = p.Delete(ctx, uri)
+        }</span>
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+// Close is a no-op for file provider.
+func (*Provider) Close() error <span class="cov8" title="1">{
+        return nil
+}</span>
+
+// Ensure Provider implements cereal.Provider.
+var _ cereal.Provider = (*Provider)(nil)
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package memory
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "strings"
+        "sync"
+        "sync/atomic"
+
+        "github.com/zoobzio/cereal"
+)
+
+// Provider implements cereal.Provider using in-memory storage.
+type Provider struct {
+        store    map[string][]byte
+        watchers map[string]map[string]func([]byte)
+        nextID   int64
+        mu       sync.RWMutex
+}
+
+// New creates a new memory provider.
+func New() *Provider <span class="cov8" title="1">{
+        return &amp;Provider{
+                store:    make(map[string][]byte),
+                watchers: make(map[string]map[string]func([]byte)),
+        }
+}</span>
+
+// Get retrieves data from memory.
+func (p *Provider) Get(_ context.Context, uri cereal.URI) ([]byte, error) <span class="cov8" title="1">{
+        p.mu.RLock()
+        defer p.mu.RUnlock()
+
+        key := uri.String()
+        data, exists := p.store[key]
+        if !exists </span><span class="cov8" title="1">{
+                return nil, cereal.ErrNotFound
+        }</span>
+
+        // Return a copy to prevent external modification
+        <span class="cov8" title="1">result := make([]byte, len(data))
+        copy(result, data)
+        return result, nil</span>
+}
+
+// Set stores data in memory.
+func (p *Provider) Set(_ context.Context, uri cereal.URI, data []byte) error <span class="cov8" title="1">{
+        p.mu.Lock()
+        defer p.mu.Unlock()
+
+        // Store a copy to prevent external modification
+        stored := make([]byte, len(data))
+        copy(stored, data)
+        p.store[uri.String()] = stored
+
+        // Notify watchers
+        p.notifyWatchers(uri.String(), stored)
+
+        return nil
+}</span>
+
+// Delete removes data from memory.
+func (p *Provider) Delete(_ context.Context, uri cereal.URI) error <span class="cov8" title="1">{
+        p.mu.Lock()
+        defer p.mu.Unlock()
+
+        key := uri.String()
+        if _, exists := p.store[key]; !exists </span><span class="cov0" title="0">{
+                return cereal.ErrNotFound
+        }</span>
+
+        <span class="cov8" title="1">delete(p.store, key)
+
+        // Notify watchers with nil data (deleted)
+        p.notifyWatchers(key, nil)
+
+        return nil</span>
+}
+
+// Exists checks if a resource exists in memory.
+func (p *Provider) Exists(_ context.Context, uri cereal.URI) (bool, error) <span class="cov8" title="1">{
+        p.mu.RLock()
+        defer p.mu.RUnlock()
+
+        _, exists := p.store[uri.String()]
+        return exists, nil
+}</span>
+
+// Execute performs an action based on the URI path.
+func (p *Provider) Execute(ctx context.Context, uri cereal.URI, payload []byte) ([]byte, error) <span class="cov0" title="0">{
+        // Route based on the last path segment
+        path := uri.Path()
+        if len(path) == 0 </span><span class="cov0" title="0">{
+                return nil, cereal.ErrNotSupported
+        }</span>
+
+        <span class="cov0" title="0">action := path[len(path)-1]
+
+        switch action </span>{
+        case "list":<span class="cov0" title="0">
+                return p.executeList(ctx, uri, payload)</span>
+        case "search":<span class="cov0" title="0">
+                return p.executeSearch(ctx, uri, payload)</span>
+        default:<span class="cov0" title="0">
+                return nil, cereal.ErrNotSupported</span>
+        }
+}
+
+// executeList returns all values with keys matching a prefix.
+func (p *Provider) executeList(_ context.Context, uri cereal.URI, payload []byte) ([]byte, error) <span class="cov0" title="0">{
+        p.mu.RLock()
+        defer p.mu.RUnlock()
+
+        // Build prefix from URI (namespace + path minus action)
+        path := uri.Path()
+        prefixParts := []string{uri.Namespace()}
+        if len(path) &gt; 1 </span><span class="cov0" title="0">{
+                prefixParts = append(prefixParts, path[:len(path)-1]...)
+        }</span>
+        <span class="cov0" title="0">prefix := strings.Join(prefixParts, "/")
+
+        // Collect matching values
+        var values []json.RawMessage
+        for key, data := range p.store </span><span class="cov0" title="0">{
+                // Remove provider prefix for comparison
+                keyWithoutProvider := strings.TrimPrefix(key, uri.Provider()+"://")
+                if strings.HasPrefix(keyWithoutProvider, prefix) </span><span class="cov0" title="0">{
+                        // Add raw JSON data (assuming it's already JSON encoded)
+                        values = append(values, json.RawMessage(data))
+                }</span>
+        }
+
+        // Return as JSON array
+        <span class="cov0" title="0">return json.Marshal(values)</span>
+}
+
+// executeSearch performs a more complex search (placeholder for now).
+func (p *Provider) executeSearch(_ context.Context, uri cereal.URI, payload []byte) ([]byte, error) <span class="cov0" title="0">{
+        // For now, just return empty results
+        // Future: parse payload for search criteria
+        return json.Marshal([][]byte{})
+}</span>
+
+// Sync watches a resource for changes.
+func (p *Provider) Sync(_ context.Context, uri cereal.URI, callback func([]byte)) (func(), error) <span class="cov8" title="1">{
+        p.mu.Lock()
+        defer p.mu.Unlock()
+
+        key := uri.String()
+        watcherID := fmt.Sprintf("watcher-%d", atomic.AddInt64(&amp;p.nextID, 1))
+
+        // Initialize watcher map for this URI if needed
+        if p.watchers[key] == nil </span><span class="cov8" title="1">{
+                p.watchers[key] = make(map[string]func([]byte))
+        }</span>
+
+        // Register the callback
+        <span class="cov8" title="1">p.watchers[key][watcherID] = callback
+
+        // If resource exists, immediately call callback with current value
+        if data, exists := p.store[key]; exists </span><span class="cov8" title="1">{
+                dataCopy := make([]byte, len(data))
+                copy(dataCopy, data)
+                go callback(dataCopy)
+        }</span>
+
+        // Return stop function
+        <span class="cov8" title="1">stop := func() </span><span class="cov8" title="1">{
+                p.mu.Lock()
+                defer p.mu.Unlock()
+
+                if watchers, exists := p.watchers[key]; exists </span><span class="cov8" title="1">{
+                        delete(watchers, watcherID)
+                        // Clean up empty watcher maps
+                        if len(watchers) == 0 </span><span class="cov8" title="1">{
+                                delete(p.watchers, key)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return stop, nil</span>
+}
+
+// Must be called with lock held.
+func (p *Provider) notifyWatchers(key string, data []byte) <span class="cov8" title="1">{
+        if watchers, exists := p.watchers[key]; exists </span><span class="cov8" title="1">{
+                // Make a copy of data for each watcher
+                var dataCopy []byte
+                if data != nil </span><span class="cov8" title="1">{
+                        dataCopy = make([]byte, len(data))
+                        copy(dataCopy, data)
+                }</span>
+
+                // Call callbacks in separate goroutines to avoid blocking
+                <span class="cov8" title="1">for _, callback := range watchers </span><span class="cov8" title="1">{
+                        cb := callback
+                        go cb(dataCopy)
+                }</span>
+        }
+}
+
+// BatchGet retrieves multiple values from memory.
+func (p *Provider) BatchGet(_ context.Context, uris []cereal.URI) ([][]byte, []error) <span class="cov8" title="1">{
+        if len(uris) == 0 </span><span class="cov8" title="1">{
+                return nil, nil
+        }</span>
+
+        <span class="cov8" title="1">p.mu.RLock()
+        defer p.mu.RUnlock()
+
+        results := make([][]byte, len(uris))
+        errors := make([]error, len(uris))
+
+        for i, uri := range uris </span><span class="cov8" title="1">{
+                key := uri.String()
+                if data, exists := p.store[key]; exists </span><span class="cov8" title="1">{
+                        // Return a copy
+                        result := make([]byte, len(data))
+                        copy(result, data)
+                        results[i] = result
+                }</span> else<span class="cov8" title="1"> {
+                        errors[i] = cereal.ErrNotFound
+                }</span>
+        }
+
+        <span class="cov8" title="1">return results, errors</span>
+}
+
+// BatchSet stores multiple values in memory.
+func (p *Provider) BatchSet(_ context.Context, uris []cereal.URI, data [][]byte) []error <span class="cov8" title="1">{
+        if len(uris) == 0 </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">if len(uris) != len(data) </span><span class="cov8" title="1">{
+                // Return error for all
+                errors := make([]error, len(uris))
+                for i := range errors </span><span class="cov8" title="1">{
+                        errors[i] = fmt.Errorf("batch size mismatch: %d uris, %d data", len(uris), len(data))
+                }</span>
+                <span class="cov8" title="1">return errors</span>
+        }
+
+        <span class="cov8" title="1">p.mu.Lock()
+        defer p.mu.Unlock()
+
+        errors := make([]error, len(uris))
+
+        for i, uri := range uris </span><span class="cov8" title="1">{
+                key := uri.String()
+                // Store a copy
+                stored := make([]byte, len(data[i]))
+                copy(stored, data[i])
+                p.store[key] = stored
+
+                // Notify watchers
+                p.notifyWatchers(key, stored)
+        }</span>
+
+        <span class="cov8" title="1">return errors</span> // All nil since memory set can't fail
+}
+
+// BatchDelete removes multiple values from memory.
+func (p *Provider) BatchDelete(_ context.Context, uris []cereal.URI) []error <span class="cov8" title="1">{
+        if len(uris) == 0 </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">p.mu.Lock()
+        defer p.mu.Unlock()
+
+        errors := make([]error, len(uris))
+
+        for i, uri := range uris </span><span class="cov8" title="1">{
+                key := uri.String()
+                if _, exists := p.store[key]; exists </span><span class="cov8" title="1">{
+                        delete(p.store, key)
+                        // Notify watchers
+                        p.notifyWatchers(key, nil)
+                }</span> else<span class="cov8" title="1"> {
+                        errors[i] = cereal.ErrNotFound
+                }</span>
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+// Close clears the memory store.
+func (p *Provider) Close() error <span class="cov8" title="1">{
+        p.mu.Lock()
+        defer p.mu.Unlock()
+
+        p.store = make(map[string][]byte)
+        p.watchers = make(map[string]map[string]func([]byte))
+        return nil
+}</span>
+
+// Ensure Provider implements cereal.Provider.
+var _ cereal.Provider = (*Provider)(nil)
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package cereal
+
+import (
+        "sync"
+)
+
+// Service manages providers and configuration.
+type Service struct {
+        providers map[string]Provider
+        mu        sync.RWMutex
+}
+
+// Global default service.
+var defaultService = NewService()
+
+// NewService creates a new service instance.
+func NewService() *Service <span class="cov0" title="0">{
+        return &amp;Service{
+                providers: make(map[string]Provider),
+        }
+}</span>
+
+// Mount adds a provider to the service with a given name.
+func (s *Service) Mount(name string, provider Provider) <span class="cov0" title="0">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+        s.providers[name] = provider
+}</span>
+
+// Unmount removes a provider from the service.
+func (s *Service) Unmount(name string) <span class="cov0" title="0">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+        delete(s.providers, name)
+}</span>
+
+// GetProvider retrieves a provider by name.
+func (s *Service) GetProvider(name string) (Provider, bool) <span class="cov0" title="0">{
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+        provider, ok := s.providers[name]
+        return provider, ok
+}</span>
+
+// Package-level functions that delegate to the default service
+
+// Mount adds a provider to the global service.
+func Mount(name string, provider Provider) <span class="cov0" title="0">{
+        defaultService.Mount(name, provider)
+}</span>
+
+// Unmount removes a provider from the global service.
+func Unmount(name string) <span class="cov0" title="0">{
+        defaultService.Unmount(name)
+}</span>
+
+// GetProvider retrieves a provider from the global service.
+func GetProvider(name string) (Provider, bool) <span class="cov0" title="0">{
+        return defaultService.GetProvider(name)
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package cereal
+
+import (
+        "fmt"
+        "strings"
+)
+
+// URI represents a resource identifier with provider routing
+// Format: provider://namespace/path/to/resource
+// Examples:
+//   - memory://users/profiles/123
+//   - redis://sessions/active/user-456
+//   - file://config/app.json
+type URI struct {
+        raw       string
+        provider  string   // Storage provider (memory, redis, file)
+        namespace string   // Logical namespace (users, orders, sessions)
+        path      []string // Path segments
+}
+
+// Panics if the URI format is invalid.
+func NewURI(uri string) URI <span class="cov0" title="0">{
+        parsed, err := ParseURI(uri)
+        if err != nil </span><span class="cov0" title="0">{
+                panic(fmt.Sprintf("invalid URI: %v", err))</span>
+        }
+        <span class="cov0" title="0">return parsed</span>
+}
+
+// ParseURI creates a URI with error handling.
+func ParseURI(uri string) (URI, error) <span class="cov0" title="0">{
+        // Validate basic format
+        if !strings.Contains(uri, "://") </span><span class="cov0" title="0">{
+                return URI{}, fmt.Errorf("missing '://' separator in URI: %s", uri)
+        }</span>
+
+        // Split provider and rest
+        <span class="cov0" title="0">parts := strings.SplitN(uri, "://", 2)
+        if len(parts) != 2 </span><span class="cov0" title="0">{
+                return URI{}, fmt.Errorf("invalid URI format: %s", uri)
+        }</span>
+
+        <span class="cov0" title="0">provider := parts[0]
+        remainder := parts[1]
+
+        // Validate provider
+        if provider == "" </span><span class="cov0" title="0">{
+                return URI{}, fmt.Errorf("empty provider in URI: %s", uri)
+        }</span>
+
+        // Split namespace and path
+        <span class="cov0" title="0">pathParts := strings.SplitN(remainder, "/", 2)
+        if len(pathParts) == 0 || pathParts[0] == "" </span><span class="cov0" title="0">{
+                return URI{}, fmt.Errorf("missing namespace in URI: %s", uri)
+        }</span>
+
+        <span class="cov0" title="0">namespace := pathParts[0]
+        var path []string
+
+        if len(pathParts) &gt; 1 &amp;&amp; pathParts[1] != "" </span><span class="cov0" title="0">{
+                path = strings.Split(pathParts[1], "/")
+        }</span>
+
+        <span class="cov0" title="0">return URI{
+                raw:       uri,
+                provider:  provider,
+                namespace: namespace,
+                path:      path,
+        }, nil</span>
+}
+
+// String returns the URI as a string.
+func (u URI) String() string <span class="cov0" title="0">{
+        return u.raw
+}</span>
+
+// Namespace returns the namespace part of the URI.
+func (u URI) Namespace() string <span class="cov0" title="0">{
+        return u.namespace
+}</span>
+
+// Path returns the path segments.
+func (u URI) Path() []string <span class="cov0" title="0">{
+        return u.path
+}</span>
+
+// PathString returns the path as a string.
+func (u URI) PathString() string <span class="cov0" title="0">{
+        return strings.Join(u.path, "/")
+}</span>
+
+// Provider returns the provider part of the URI.
+func (u URI) Provider() string <span class="cov0" title="0">{
+        return u.provider
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
