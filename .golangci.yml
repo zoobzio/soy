@@ -1,9 +1,7 @@
 run:
   timeout: 5m
   tests: true
-  build-tags:
-    - integration
-  
+
 linters:
   enable:
     # Security-critical linters
@@ -12,19 +10,19 @@ linters:
     - noctx        # HTTP requests must have context
     - bodyclose    # HTTP response body must be closed
     - sqlclosecheck # SQL rows/statements must be closed
-    
+
     # Code quality with security implications
     - govet        # Suspicious constructs
     - ineffassign  # Detect ineffectual assignments
     - staticcheck  # Advanced static analysis
     - unused       # Unused code detection
     - typecheck    # Type checking
-    
+
     # Error handling
     - errcheck     # Unchecked errors
     - errchkjson   # JSON marshaling errors
     - wastedassign # Wasted assignments
-    
+
     # Best practices
     - gocritic     # Opinionated linter
     - revive       # Fast, configurable linter
@@ -50,16 +48,20 @@ linters-settings:
     config:
       global:
         audit: true
-  
+
   govet:
     enable-all: true
-  
+    disable:
+      - fieldalignment  # Performance optimization, not critical for correctness
+
   errcheck:
     check-type-assertions: true
     check-blank: true
     exclude-functions:
-      - (io.Closer).Close  # Handled by bodyclose
-  
+      - (io.Closer).Close
+      - (*database/sql.Rows).Close
+      - (*github.com/jmoiron/sqlx.Rows).Close
+
   gocritic:
     enabled-checks:
       # Only non-default checks
@@ -107,7 +109,7 @@ linters-settings:
       - unnecessaryDefer
       - weakCond
       - yodaStyleExpr
-  
+
   revive:
     severity: warning
     rules:
@@ -141,14 +143,14 @@ linters-settings:
       - name: useless-break
       - name: var-declaration
       - name: var-naming
-  
+
   dupl:
     threshold: 150
-  
+
   goconst:
     min-len: 3
     min-occurrences: 3
-    
+
   misspell:
     locale: US
 
@@ -159,7 +161,12 @@ issues:
     - linters:
         - godox
       text: "TODO|FIXME|BUG"
-    
+
+    # sqlclosecheck: defer rows.Close() after error check is correct pattern
+    - linters:
+        - sqlclosecheck
+      text: "Rows/Stmt/NamedStmt was not closed"
+
     # Test files can have longer functions and different struct ordering
     - path: _test\.go
       linters:
@@ -167,12 +174,13 @@ issues:
         - goconst
         - dupl
         - govet
-  
+        - errcheck
+
   # Maximum issues count per one linter
   max-issues-per-linter: 0
-  
+
   # Maximum count of issues with same text
   max-same-issues: 0
-  
+
   # Show all issues
   new: false

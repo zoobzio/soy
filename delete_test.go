@@ -1,0 +1,342 @@
+package cereal
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/sentinel"
+)
+
+func TestDelete_Basic(t *testing.T) {
+	// Register tags
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+	sentinel.Tag("default")
+
+	db := &sqlx.DB{}
+	cereal, err := New[User](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("DELETE with WHERE", func(t *testing.T) {
+		result, err := cereal.Remove().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "DELETE FROM") {
+			t.Errorf("SQL missing DELETE FROM: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"users"`) {
+			t.Errorf("SQL missing table name: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"id"`) {
+			t.Errorf("SQL missing id field: %s", result.SQL)
+		}
+
+		// Check required parameters
+		if len(result.RequiredParams) != 1 {
+			t.Errorf("Expected 1 required param, got %d", len(result.RequiredParams))
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("DELETE with multiple WHERE (AND)", func(t *testing.T) {
+		result, err := cereal.Remove().
+			Where("id", "=", "user_id").
+			Where("email", "=", "user_email").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("DELETE with WhereAnd", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereAnd(
+				C("age", ">=", "min_age"),
+				C("age", "<=", "max_age"),
+			).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("DELETE with WhereOr", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereOr(
+				C("age", "<", "young_age"),
+				C("age", ">", "old_age"),
+			).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "OR") {
+			t.Errorf("SQL missing OR: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("DELETE with WhereNull", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereNull("age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "IS NULL") {
+			t.Errorf("SQL missing IS NULL: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("DELETE with WhereNotNull", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereNotNull("age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "IS NOT NULL") {
+			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+}
+
+func TestDelete_SafetyChecks(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[User](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("Exec fails without WHERE clause", func(t *testing.T) {
+		ctx := context.Background()
+		params := map[string]any{}
+
+		_, err := cereal.Remove().Exec(ctx, params)
+		if err == nil {
+			t.Error("Expected error when executing DELETE without WHERE")
+		}
+		if !strings.Contains(err.Error(), "WHERE condition") {
+			t.Errorf("Error message should mention WHERE condition, got: %s", err.Error())
+		}
+	})
+
+	t.Run("Render succeeds with WHERE clause", func(t *testing.T) {
+		builder := cereal.Remove().Where("id", "=", "user_id")
+
+		// Render should work
+		result, err := builder.Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if result.SQL == "" {
+			t.Error("Render() returned empty SQL")
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("Expected WHERE clause in SQL: %s", result.SQL)
+		}
+	})
+}
+
+func TestDelete_InstanceAccess(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[User](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	builder := cereal.Remove()
+	instance := builder.Instance()
+
+	if instance == nil {
+		t.Fatal("Instance() returned nil")
+	}
+
+	// Verify we can use instance methods for advanced queries
+	field := instance.F("email")
+	if field.GetName() != "email" {
+		t.Errorf("Field name = %s, want email", field.GetName())
+	}
+}
+
+func TestDelete_MustRender(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[User](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("successful MustRender", func(t *testing.T) {
+		result := cereal.Remove().
+			Where("id", "=", "user_id").
+			MustRender()
+		if result == nil {
+			t.Fatal("MustRender() returned nil")
+		}
+		if result.SQL == "" {
+			t.Error("MustRender() returned empty SQL")
+		}
+	})
+
+	t.Run("MustRender panics on invalid field", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("MustRender() did not panic with invalid field")
+			}
+		}()
+		cereal.Remove().
+			Where("nonexistent_field", "=", "value").
+			MustRender()
+	})
+
+	t.Run("MustRender panics on invalid operator", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("MustRender() did not panic with invalid operator")
+			}
+		}()
+		cereal.Remove().
+			Where("id", "INVALID", "user_id").
+			MustRender()
+	})
+}
+
+func TestDelete_Validation(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[User](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("all supported operators in WHERE", func(t *testing.T) {
+		operators := []string{"=", "!=", ">", ">=", "<", "<="}
+		for _, op := range operators {
+			result, err := cereal.Remove().
+				Where("age", op, "value").
+				Render()
+			if err != nil {
+				t.Errorf("Operator %s failed: %v", op, err)
+			}
+			if !strings.Contains(result.SQL, "WHERE") {
+				t.Errorf("Operator %s produced invalid SQL: %s", op, result.SQL)
+			}
+		}
+	})
+}
+
+func TestDelete_BatchOperations(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[User](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("ExecBatch renders query once for multiple param sets", func(t *testing.T) {
+		result, err := cereal.Remove().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "DELETE FROM") {
+			t.Errorf("SQL missing DELETE FROM: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+
+		t.Logf("Batch delete SQL: %s", result.SQL)
+	})
+
+	t.Run("ExecBatch with complex WHERE", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereAnd(
+				C("age", ">=", "min_age"),
+				C("email", "=", "user_email"),
+			).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		t.Logf("Batch delete with AND SQL: %s", result.SQL)
+	})
+
+	t.Run("ExecBatch enforces WHERE requirement", func(t *testing.T) {
+		ctx := context.Background()
+		batchParams := []map[string]any{
+			{"user_id": 1},
+			{"user_id": 2},
+		}
+
+		_, err := cereal.Remove().ExecBatch(ctx, batchParams)
+		if err == nil {
+			t.Error("Expected error when executing batch DELETE without WHERE")
+		}
+		if !strings.Contains(err.Error(), "WHERE condition") {
+			t.Errorf("Error message should mention WHERE condition, got: %s", err.Error())
+		}
+	})
+}

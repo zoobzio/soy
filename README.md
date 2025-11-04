@@ -1,91 +1,314 @@
-# Cereal
+# cereal
 
-Cereal is a universal data access layer that provides a consistent CRUD API across different storage providers. It uses ASTQL (Abstract Syntax Tree Query Language) internally to build type-safe queries while exposing a simple interface to users.
+[![CI Status](https://github.com/zoobzio/cereal/workflows/CI/badge.svg)](https://github.com/zoobzio/cereal/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/zoobzio/cereal/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobzio/cereal)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zoobzio/cereal)](https://goreportcard.com/report/github.com/zoobzio/cereal)
+[![CodeQL](https://github.com/zoobzio/cereal/workflows/CodeQL/badge.svg)](https://github.com/zoobzio/cereal/security/code-scanning)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zoobzio/cereal.svg)](https://pkg.go.dev/github.com/zoobzio/cereal)
+[![License](https://img.shields.io/github/license/zoobzio/cereal)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/cereal)](go.mod)
+[![Release](https://img.shields.io/github/v/release/zoobzio/cereal)](https://github.com/zoobzio/cereal/releases)
+
+Type-safe, query-validated ORM for Go with compile-time schema validation.
+
+Build database queries with full type safety and SQL validation at initialization time, not runtime.
+
+## Features
+
+- **Type-safe queries**: Full compile-time type checking with Go generics
+- **SQL validation**: Queries are validated against your schema at initialization using [ASTQL](https://github.com/zoobzio/astql)
+- **Schema from structs**: Generate DBML schema from struct tags using [Sentinel](https://github.com/zoobzio/sentinel)
+- **Fluent API**: Simple, chainable query builders for SELECT, INSERT, UPDATE, DELETE
+- **Aggregate functions**: Built-in support for COUNT, SUM, AVG, MIN, MAX
+- **Zero reflection on hot path**: All reflection happens once at initialization
+- **Built on sqlx**: Leverages the battle-tested [sqlx](https://github.com/jmoiron/sqlx) library
+- **PostgreSQL support**: Native support for PostgreSQL via pgx driver
+
+## Installation
+
+```bash
+go get github.com/zoobzio/cereal
+```
+
+Requirements: Go 1.23.2+
+
+## Quick Start
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/jmoiron/sqlx"
+    _ "github.com/jackc/pgx/v5/stdlib"
+    "github.com/zoobzio/cereal"
+)
+
+type User struct {
+    ID    int64  `db:"id" type:"bigserial primary key"`
+    Email string `db:"email" type:"text unique not null"`
+    Name  string `db:"name" type:"text"`
+}
+
+func main() {
+    // Connect to database
+    db, err := sqlx.Connect("pgx", "postgres://localhost/mydb?sslmode=disable")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    // Create Cereal instance (validates schema at initialization)
+    c, err := cereal.New[User](db, "users")
+    if err != nil {
+        panic(err)
+    }
+
+    ctx := context.Background()
+
+    // Simple SELECT query
+    user, err := c.Select("id", "email", "name").
+        Where("email", "=", "user@example.com").
+        One(ctx)
+    if err != nil {
+        panic(err)
+    }
+
+    // INSERT query
+    newUser := User{Email: "new@example.com", Name: "New User"}
+    err = c.Create().
+        Values(newUser).
+        Exec(ctx)
+    if err != nil {
+        panic(err)
+    }
+
+    // UPDATE query
+    err = c.Update().
+        Set("name", "Updated Name").
+        Where("id", "=", user.ID).
+        Exec(ctx)
+    if err != nil {
+        panic(err)
+    }
+
+    // DELETE query
+    err = c.Delete().
+        Where("id", "=", user.ID).
+        Exec(ctx)
+    if err != nil {
+        panic(err)
+    }
+
+    // Aggregate queries
+    count, err := c.Count().
+        Where("email", "LIKE", "%@example.com").
+        Exec(ctx)
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+## Core Concepts
+
+### Cereal Instance
+
+The `Cereal[T]` type is the main entry point. It holds:
+- Database connection (sqlx)
+- Table name
+- Type metadata (via Sentinel)
+- ASTQL schema for validation
+
+All schema inspection and validation happens once at initialization via `cereal.New[T]()`.
+
+### Query Builders
+
+Cereal provides simple query builders that hide ASTQL complexity:
+
+- **Select**: Build SELECT queries that return `[]T` or single `T`
+- **Create**: Build INSERT queries from struct values
+- **Update**: Build UPDATE queries with SET and WHERE clauses
+- **Delete**: Build DELETE queries with WHERE clauses
+- **Count, Sum, Avg, Min, Max**: Aggregate function builders
+
+### Schema from Structs
+
+Define your schema using struct tags:
+
+```go
+type Product struct {
+    ID          int64     `db:"id" type:"bigserial primary key"`
+    Name        string    `db:"name" type:"text not null"`
+    Price       float64   `db:"price" type:"numeric(10,2) not null"`
+    Stock       int       `db:"stock" type:"integer default 0"`
+    CategoryID  int64     `db:"category_id" type:"bigint references categories(id)"`
+    CreatedAt   time.Time `db:"created_at" type:"timestamp default now()"`
+}
+```
+
+Tags:
+- `db`: Column name
+- `type`: PostgreSQL column type with constraints
+- `constraints`: Additional constraints
+- `default`: Default value
+- `references`: Foreign key reference
+- `index`: Index definition
+- `check`: Check constraint
+
+### DBML Generation
+
+You can generate DBML schema from your structs:
+
+```go
+project, err := cereal.GenerateDBML(metadata, "products")
+```
+
+This allows you to:
+- Document your schema
+- Generate database migrations
+- Visualize table relationships
+
+## Query Examples
+
+### SELECT Queries
+
+```go
+// Select all columns
+users, err := c.Select("*").All(ctx)
+
+// Select specific columns
+users, err := c.Select("id", "email").
+    Where("status", "=", "active").
+    OrderBy("created_at", false). // false = DESC
+    Limit(10).
+    All(ctx)
+
+// Select one record
+user, err := c.Select("*").
+    Where("id", "=", 123).
+    One(ctx)
+```
+
+### INSERT Queries
+
+```go
+// Insert single record
+user := User{Email: "test@example.com", Name: "Test"}
+err := c.Create().Values(user).Exec(ctx)
+
+// Insert with RETURNING
+var id int64
+err := c.Create().
+    Values(user).
+    Returning("id").
+    Scan(ctx, &id)
+```
+
+### UPDATE Queries
+
+```go
+// Update with WHERE
+err := c.Update().
+    Set("status", "inactive").
+    Set("updated_at", time.Now()).
+    Where("id", "=", 123).
+    Exec(ctx)
+```
+
+### DELETE Queries
+
+```go
+// Delete with WHERE
+err := c.Delete().
+    Where("status", "=", "inactive").
+    Exec(ctx)
+```
+
+### Aggregate Queries
+
+```go
+// Count records
+count, err := c.Count().
+    Where("status", "=", "active").
+    Exec(ctx)
+
+// Sum values
+total, err := c.Sum("amount").
+    Where("paid", "=", true).
+    Exec(ctx)
+
+// Average
+avg, err := c.Avg("rating").Exec(ctx)
+
+// Min/Max
+min, err := c.Min("price").Exec(ctx)
+max, err := c.Max("price").Exec(ctx)
+```
+
+## Advanced Usage
+
+### Direct ASTQL Access
+
+For complex queries beyond the simple API:
+
+```go
+instance := c.Instance()
+query := astql.Select(instance.T("users")).
+    Fields(instance.F("id"), instance.F("email")).
+    Where(instance.C(instance.F("age"), ">=", instance.P("min_age")))
+```
+
+### Custom Query Execution
+
+```go
+// Access underlying sqlx.DB
+db := c.execer()
+```
 
 ## Architecture
 
-### Core Design Principles
+Cereal is built on three core libraries:
 
-1. **Simple CRUD API** - Standard Get/Set/Delete/Exists operations work the same across all providers
-2. **ASTQL-Powered** - Providers implement CRUD operations using ASTQL queries internally
-3. **AST Storage** - Named queries store AST structures, not rendered SQL, allowing for provider-specific optimizations
-4. **Direct Results** - No encoding/decoding layer - providers return raw bytes for users to unmarshal
-5. **Extensible** - Execute method allows running custom ASTQL queries beyond standard CRUD
+1. **[Sentinel](https://github.com/zoobzio/sentinel)**: Type inspection and metadata extraction
+2. **[ASTQL](https://github.com/zoobzio/astql)**: SQL validation and query building
+3. **[sqlx](https://github.com/jmoiron/sqlx)**: Database operations and scanning
 
-### Key Components
-
-- **Provider Interface** (`provider.go`) - Defines the contract all providers must implement
-- **Query Structure** (`types.go`) - Supports both named queries and direct AST execution
-- **Common Errors** (`errors.go`) - Standardized error types across providers
-- **Explicit Parameters** - No URI parsing, direct table/keyField/keyValue parameters
-
-### Provider Implementation
-
-Each provider (e.g., postgres) implements the Provider interface by:
-
-1. Converting CRUD operations to ASTQL AST structures
-2. Rendering AST to provider-specific query format
-3. Executing queries and returning JSON-encoded results
-4. Managing named query storage as AST structures
-
-## Usage Example
-
-```go
-// Initialize provider
-provider, err := postgres.New("postgres://localhost/mydb")
-defer provider.Close()
-
-// Basic CRUD with explicit parameters
-err = provider.Set(ctx, "users", "id", "123", userData)
-data, err := provider.Get(ctx, "users", "id", "123")
-exists, err := provider.Exists(ctx, "users", "id", "123")
-err = provider.Delete(ctx, "users", "id", "123")
-
-// Works with any primary key field
-err = provider.Set(ctx, "products", "sku", "ABC-123", productData)
-data, err = provider.Get(ctx, "accounts", "email", "user@example.com")
-
-// Batch operations
-keys := []string{"100", "101", "102"}
-results, errs := provider.BatchGet(ctx, "orders", "order_id", keys)
-
-// Custom queries with ASTQL
-query := postgres.Select(astql.T("users")).
-    Where(astql.C(astql.F("age"), astql.GT, astql.P("min_age")))
-
-ast, _ := query.Build()
-provider.RegisterQuery("adult_users", ast)
-
-result, err := provider.Execute(ctx, cereal.Query{
-    Name: "adult_users",
-    Parameters: map[string]interface{}{"min_age": 18},
-})
+The stack:
+```
+┌──────────────────────┐
+│   Cereal (this)      │  Simple query API
+├──────────────────────┤
+│   ASTQL              │  SQL validation
+├──────────────────────┤
+│   Sentinel           │  Type metadata
+├──────────────────────┤
+│   sqlx               │  Database ops
+└──────────────────────┘
 ```
 
-## Providers
+## Performance
 
-### PostgreSQL
+- **Zero reflection on hot path**: All type inspection happens once at initialization
+- **Prepared statements**: sqlx handles statement preparation and caching
+- **Efficient scanning**: Direct struct scanning via sqlx
+- **Minimal allocations**: Query builders reuse buffers where possible
 
-The postgres provider demonstrates the architecture:
+## Contributing
 
-- CRUD operations build ASTQL queries internally
-- ON CONFLICT for upserts in Set operation
-- Batch operations with efficient IN queries
-- Named query storage and execution
-- Direct AST execution support
+Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-### Future Providers
+```bash
+# Run tests
+make test
 
-The same pattern can be implemented for:
-- MongoDB (using ASTQL's document query builders)
-- DynamoDB (using ASTQL's key-value patterns)
-- Redis (using ASTQL's cache-oriented operations)
-- SQLite (reusing postgres patterns)
+# Run linter
+make lint
 
-## Benefits
+# Generate coverage
+make coverage
+```
 
-1. **Consistent API** - Same interface regardless of underlying storage
-2. **Type Safety** - ASTQL provides compile-time query validation via Sentinel
-3. **Query Reuse** - Store complex queries as AST for repeated execution
-4. **Provider Flexibility** - Each provider can optimize AST rendering for its backend
-5. **No Magic** - Direct control over data marshaling/unmarshaling
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
