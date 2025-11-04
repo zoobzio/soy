@@ -68,8 +68,8 @@ func main() {
 
     // Simple SELECT query
     user, err := c.Select("id", "email", "name").
-        Where("email", "=", "user@example.com").
-        One(ctx)
+        Where("email", "=", "user_email").
+        Exec(ctx, map[string]any{"user_email": "user@example.com"})
     if err != nil {
         panic(err)
     }
@@ -84,26 +84,29 @@ func main() {
     }
 
     // UPDATE query
-    err = c.Update().
-        Set("name", "Updated Name").
-        Where("id", "=", user.ID).
-        Exec(ctx)
+    _, err = c.Update().
+        Set("name", "new_name").
+        Where("id", "=", "user_id").
+        Exec(ctx, map[string]any{
+            "new_name": "Updated Name",
+            "user_id": user.ID,
+        })
     if err != nil {
         panic(err)
     }
 
     // DELETE query
     err = c.Delete().
-        Where("id", "=", user.ID).
-        Exec(ctx)
+        Where("id", "=", "user_id").
+        Exec(ctx, map[string]any{"user_id": user.ID})
     if err != nil {
         panic(err)
     }
 
     // Aggregate queries
     count, err := c.Count().
-        Where("email", "LIKE", "%@example.com").
-        Exec(ctx)
+        Where("email", "LIKE", "email_pattern").
+        Exec(ctx, map[string]any{"email_pattern": "%@example.com"})
     if err != nil {
         panic(err)
     }
@@ -175,19 +178,19 @@ This allows you to:
 
 ```go
 // Select all columns
-users, err := c.Select("*").All(ctx)
+users, err := c.Select("*").All(ctx, nil)
 
 // Select specific columns
 users, err := c.Select("id", "email").
-    Where("status", "=", "active").
-    OrderBy("created_at", false). // false = DESC
+    Where("status", "=", "status_value").
+    OrderBy("created_at", "desc").
     Limit(10).
-    All(ctx)
+    All(ctx, map[string]any{"status_value": "active"})
 
 // Select one record
 user, err := c.Select("*").
-    Where("id", "=", 123).
-    One(ctx)
+    Where("id", "=", "user_id").
+    Exec(ctx, map[string]any{"user_id": 123})
 ```
 
 ### INSERT Queries
@@ -209,11 +212,15 @@ err := c.Create().
 
 ```go
 // Update with WHERE
-err := c.Update().
-    Set("status", "inactive").
-    Set("updated_at", time.Now()).
-    Where("id", "=", 123).
-    Exec(ctx)
+_, err := c.Update().
+    Set("status", "new_status").
+    Set("updated_at", "now").
+    Where("id", "=", "user_id").
+    Exec(ctx, map[string]any{
+        "new_status": "inactive",
+        "now": time.Now(),
+        "user_id": 123,
+    })
 ```
 
 ### DELETE Queries
@@ -221,8 +228,8 @@ err := c.Update().
 ```go
 // Delete with WHERE
 err := c.Delete().
-    Where("status", "=", "inactive").
-    Exec(ctx)
+    Where("status", "=", "status_value").
+    Exec(ctx, map[string]any{"status_value": "inactive"})
 ```
 
 ### Aggregate Queries
@@ -230,20 +237,20 @@ err := c.Delete().
 ```go
 // Count records
 count, err := c.Count().
-    Where("status", "=", "active").
-    Exec(ctx)
+    Where("status", "=", "status_value").
+    Exec(ctx, map[string]any{"status_value": "active"})
 
 // Sum values
 total, err := c.Sum("amount").
-    Where("paid", "=", true).
-    Exec(ctx)
+    Where("paid", "=", "paid_status").
+    Exec(ctx, map[string]any{"paid_status": true})
 
 // Average
-avg, err := c.Avg("rating").Exec(ctx)
+avg, err := c.Avg("rating").Exec(ctx, nil)
 
 // Min/Max
-min, err := c.Min("price").Exec(ctx)
-max, err := c.Max("price").Exec(ctx)
+min, err := c.Min("price").Exec(ctx, nil)
+max, err := c.Max("price").Exec(ctx, nil)
 ```
 
 ## Advanced Usage
@@ -257,6 +264,10 @@ instance := c.Instance()
 query := astql.Select(instance.T("users")).
     Fields(instance.F("id"), instance.F("email")).
     Where(instance.C(instance.F("age"), ">=", instance.P("min_age")))
+
+// Execute with parameters
+result, err := query.Render()
+rows, err := sqlx.NamedQueryContext(ctx, db, result.SQL, map[string]any{"min_age": 18})
 ```
 
 ### Custom Query Execution
