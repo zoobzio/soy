@@ -206,7 +206,7 @@ func (ub *Update[T]) buildCondition(cond Condition) (astql.ConditionItem, error)
 	}
 
 	if cond.isNull {
-		if cond.operator == "IS NULL" {
+		if cond.operator == opIsNull {
 			return ub.instance.TryNull(f)
 		}
 		return ub.instance.TryNotNull(f)

@@ -8,6 +8,13 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+type selectTestUser struct {
+	ID    int    `db:"id" type:"integer" constraints:"primarykey"`
+	Email string `db:"email" type:"text" constraints:"notnull,unique"`
+	Name  string `db:"name" type:"text"`
+	Age   *int   `db:"age" type:"integer"`
+}
+
 func TestSelect_Basic(t *testing.T) {
 	// Register tags
 	sentinel.Tag("db")
@@ -16,7 +23,7 @@ func TestSelect_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[selectTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -347,7 +354,7 @@ func TestSelect_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[selectTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -375,7 +382,7 @@ func TestSelect_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[selectTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -424,7 +431,7 @@ func TestSelect_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[selectTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

@@ -8,6 +8,13 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+type queryTestUser struct {
+	ID    int    `db:"id" type:"integer" constraints:"primarykey"`
+	Email string `db:"email" type:"text" constraints:"notnull,unique"`
+	Name  string `db:"name" type:"text"`
+	Age   *int   `db:"age" type:"integer"`
+}
+
 func TestQuery_Basic(t *testing.T) {
 	// Register tags
 	sentinel.Tag("db")
@@ -16,7 +23,7 @@ func TestQuery_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -166,7 +173,7 @@ func TestQuery_OrderBy(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -243,7 +250,7 @@ func TestQuery_Pagination(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -315,7 +322,7 @@ func TestQuery_ComplexQueries(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -374,7 +381,7 @@ func TestQuery_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -399,7 +406,7 @@ func TestQuery_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -469,7 +476,7 @@ func TestQuery_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[queryTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

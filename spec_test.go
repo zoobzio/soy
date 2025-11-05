@@ -10,6 +10,13 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+type specTestUser struct {
+	ID    int    `db:"id" type:"integer" constraints:"primarykey"`
+	Email string `db:"email" type:"text" constraints:"notnull,unique"`
+	Name  string `db:"name" type:"text"`
+	Age   *int   `db:"age" type:"integer"`
+}
+
 func TestQueryFromSpec(t *testing.T) {
 	// Register tags
 	sentinel.Tag("db")
@@ -28,7 +35,7 @@ func TestQueryFromSpec(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[User](db, "users")
+	cereal, err := New[specTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -155,7 +162,7 @@ func TestSelectFromSpec(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[User](db, "users")
+	cereal, err := New[specTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -220,7 +227,7 @@ func TestModifyFromSpec(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[User](db, "users")
+	cereal, err := New[specTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -286,7 +293,7 @@ func TestRemoveFromSpec(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[User](db, "users")
+	cereal, err := New[specTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -347,7 +354,7 @@ func TestAggregateFromSpec(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[User](db, "users")
+	cereal, err := New[specTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -465,7 +472,7 @@ func TestEndToEndSpecExecution(t *testing.T) {
 		('charlie@example.com', 'Charlie', 35)
 	`)
 
-	cereal, err := New[User](db, "users")
+	cereal, err := New[specTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

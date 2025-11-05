@@ -8,6 +8,13 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+type updateTestUser struct {
+	ID    int    `db:"id" type:"integer" constraints:"primarykey"`
+	Email string `db:"email" type:"text" constraints:"notnull,unique"`
+	Name  string `db:"name" type:"text"`
+	Age   *int   `db:"age" type:"integer"`
+}
+
 func TestUpdate_Basic(t *testing.T) {
 	// Register tags
 	sentinel.Tag("db")
@@ -16,7 +23,7 @@ func TestUpdate_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[updateTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -199,7 +206,7 @@ func TestUpdate_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[updateTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -224,7 +231,7 @@ func TestUpdate_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[updateTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -273,7 +280,7 @@ func TestUpdate_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[updateTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -301,7 +308,7 @@ func TestUpdate_BatchOperations(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[updateTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

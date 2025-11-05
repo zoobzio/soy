@@ -9,6 +9,13 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+type deleteTestUser struct {
+	ID    int    `db:"id" type:"integer" constraints:"primarykey"`
+	Email string `db:"email" type:"text" constraints:"notnull,unique"`
+	Name  string `db:"name" type:"text"`
+	Age   *int   `db:"age" type:"integer"`
+}
+
 func TestDelete_Basic(t *testing.T) {
 	// Register tags
 	sentinel.Tag("db")
@@ -17,7 +24,7 @@ func TestDelete_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[deleteTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -144,7 +151,7 @@ func TestDelete_SafetyChecks(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[deleteTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -185,7 +192,7 @@ func TestDelete_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[deleteTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -210,7 +217,7 @@ func TestDelete_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[deleteTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -256,7 +263,7 @@ func TestDelete_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[deleteTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -283,7 +290,7 @@ func TestDelete_BatchOperations(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[User](db, "users")
+	cereal, err := New[deleteTestUser](db, "users")
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

@@ -1,3 +1,77 @@
+// Package cereal provides a type-safe, schema-validated query builder for PostgreSQL.
+//
+// Cereal wraps ASTQL to offer a simplified API for building SQL queries with compile-time
+// type safety and runtime schema validation. It uses reflection (via Sentinel) once at
+// initialization, then provides a zero-allocation query building API.
+//
+// # Quick Start
+//
+// Define your model with struct tags:
+//
+//	type User struct {
+//	    ID    int    `db:"id" type:"integer" constraints:"primarykey"`
+//	    Email string `db:"email" type:"text" constraints:"notnull,unique"`
+//	    Name  string `db:"name" type:"text"`
+//	    Age   *int   `db:"age" type:"integer"`
+//	}
+//
+// Create a Cereal instance:
+//
+//	cereal, err := cereal.New[User](db, "users")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Build and execute queries:
+//
+//	// Select single record
+//	user, err := cereal.Select().
+//	    Where("email", "=", "user_email").
+//	    Exec(ctx, map[string]any{"user_email": "test@example.com"})
+//
+//	// Query multiple records
+//	users, err := cereal.Query().
+//	    Where("age", ">=", "min_age").
+//	    OrderBy("name", "ASC").
+//	    Limit(10).
+//	    Exec(ctx, map[string]any{"min_age": 18})
+//
+//	// Insert with upsert
+//	user := &User{Email: "test@example.com", Name: "Test"}
+//	inserted, err := cereal.Insert().
+//	    OnConflict("email").
+//	    DoUpdate().
+//	    Set("name", "name").
+//	    Build().
+//	    Exec(ctx, user)
+//
+//	// Update
+//	updated, err := cereal.Modify().
+//	    Set("name", "new_name").
+//	    Where("id", "=", "user_id").
+//	    Exec(ctx, map[string]any{"new_name": "John", "user_id": 123})
+//
+//	// Delete
+//	deleted, err := cereal.Remove().
+//	    Where("id", "=", "user_id").
+//	    Exec(ctx, map[string]any{"user_id": 123})
+//
+//	// Aggregates
+//	count, err := cereal.Count().
+//	    Where("status", "=", "active").
+//	    Exec(ctx, map[string]any{"status": "active"})
+//
+// # Features
+//
+//   - Type-safe query building with compile-time guarantees
+//   - Runtime schema validation against struct tags
+//   - Zero reflection on the query hot path
+//   - Named parameter placeholders for SQL injection safety
+//   - Batch operations for inserts, updates, and deletes
+//   - Aggregate functions (COUNT, SUM, AVG, MIN, MAX)
+//   - Complex WHERE conditions with AND/OR grouping
+//   - DBML schema generation from struct tags
+//   - Integration with capitan for structured logging
 package cereal
 
 import (
@@ -9,7 +83,7 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
-// Cereal provides a type-safe query  API for a specific model type.
+// Cereal provides a type-safe query API for a specific model type.
 // Each instance holds the ASTQL schema and metadata for building validated queries.
 type Cereal[T any] struct {
 	db        *sqlx.DB

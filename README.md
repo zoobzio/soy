@@ -437,6 +437,65 @@ rows, err := sqlx.NamedQueryContext(ctx, db, result.SQL, map[string]any{"min_age
 db := c.execer()
 ```
 
+## Observability
+
+Cereal emits structured events via [Capitan](https://github.com/zoobzio/capitan) for logging and monitoring.
+
+### Signals
+
+**QueryStarted** (`db.query.started`)
+- Emitted when a database query begins execution
+- Fields: `table`, `operation`, `sql`
+
+**QueryCompleted** (`db.query.completed`)
+- Emitted when a query completes successfully
+- Fields: `table`, `operation`, `duration_ms`, `rows_affected` or `rows_returned`, `result_value` (for aggregates)
+
+**QueryFailed** (`db.query.failed`)
+- Emitted when a query fails with an error
+- Fields: `table`, `operation`, `duration_ms`, `error`
+
+### Event Fields
+
+- `table` (string): Database table being operated on
+- `operation` (string): Type of operation (SELECT, INSERT, UPDATE, DELETE, COUNT, SUM, AVG, MIN, MAX)
+- `sql` (string): Rendered SQL query string
+- `duration_ms` (int64): Query execution duration in milliseconds
+- `rows_affected` (int64): Number of rows affected (INSERT/UPDATE/DELETE)
+- `rows_returned` (int): Number of rows returned (SELECT)
+- `error` (string): Error message when query fails
+- `field` (string): Field being aggregated (SUM/AVG/MIN/MAX)
+- `result_value` (float64): Result value for aggregates
+
+### Example Integration
+
+```go
+import (
+    "github.com/zoobzio/capitan"
+    "github.com/zoobzio/cereal"
+)
+
+// Subscribe to query events
+capitan.Subscribe(cereal.QueryCompleted, func(signal capitan.Signal, fields ...capitan.Field) {
+    // Extract fields
+    var table, operation string
+    var duration int64
+
+    for _, field := range fields {
+        switch field.Key() {
+        case "table":
+            table = field.String()
+        case "operation":
+            operation = field.String()
+        case "duration_ms":
+            duration = field.Int64()
+        }
+    }
+
+    log.Printf("Query %s on %s completed in %dms", operation, table, duration)
+})
+```
+
 ## Architecture
 
 Cereal is built on three core libraries:
