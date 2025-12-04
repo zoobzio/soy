@@ -20,8 +20,8 @@ github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxU
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
-github.com/zoobzio/astql v0.0.10 h1:uKVDvRvo7fojhpbCp4kKwHYScxmueW17RufMq4EUBOc=
-github.com/zoobzio/astql v0.0.10/go.mod h1:geVi4p3U8pVSyIrn1uPABl/NMAc1uAuvBtv4MKPN2wo=
+github.com/zoobzio/astql v0.0.11 h1:fz9mdyE2E/UIt0qFURgCDEystZ5TjlZV/tyMjSVPkp0=
+github.com/zoobzio/astql v0.0.11/go.mod h1:geVi4p3U8pVSyIrn1uPABl/NMAc1uAuvBtv4MKPN2wo=
 github.com/zoobzio/capitan v0.0.8 h1:mSsJv+4+D3Fl4KgQ7xU3SdagHWXV1m/J+BLGcnFc33c=
 github.com/zoobzio/capitan v0.0.8/go.mod h1:/OwNDIB1CHxwSzsF4e48B2+2e/IMIvTb0ZMgVeNyYig=
 github.com/zoobzio/dbml v0.0.3 h1:VQ8uWiJ3ZKSOB4kQMezHrKrnpSY6a9nnwNG48vN3Bys=

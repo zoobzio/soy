@@ -437,7 +437,7 @@ func TestSelect_Validation(t *testing.T) {
 	}
 
 	t.Run("all supported operators", func(t *testing.T) {
-		operators := []string{"=", "!=", ">", ">=", "<", "<=", "LIKE", "NOT LIKE"}
+		operators := []string{"=", "!=", ">", ">=", "<", "<=", "LIKE", "NOT LIKE", "<->", "<#>", "<=>", "<+>"}
 		for _, op := range operators {
 			result, err := cereal.Select().
 				Where("age", op, "value").

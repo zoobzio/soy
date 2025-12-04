@@ -46,6 +46,11 @@ var operatorMap = map[string]astql.Operator{
 	"<=":       astql.LE,
 	"LIKE":     astql.LIKE,
 	"NOT LIKE": astql.NotLike,
+	// Vector operators (pgvector).
+	"<->": astql.VectorL2Distance,
+	"<#>": astql.VectorInnerProduct,
+	"<=>": astql.VectorCosineDistance,
+	"<+>": astql.VectorL1Distance,
 }
 
 // directionMap translates string directions to ASTQL directions.
@@ -58,7 +63,7 @@ var directionMap = map[string]astql.Direction{
 func validateOperator(op string) (astql.Operator, error) {
 	astqlOp, ok := operatorMap[op]
 	if !ok {
-		return "", fmt.Errorf("invalid operator %q, must be one of: =, !=, >, >=, <, <=, LIKE, NOT LIKE", op)
+		return "", fmt.Errorf("invalid operator %q, must be one of: =, !=, >, >=, <, <=, LIKE, NOT LIKE, <->, <#>, <=>, <+>", op)
 	}
 	return astqlOp, nil
 }
