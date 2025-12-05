@@ -46,6 +46,8 @@ var operatorMap = map[string]astql.Operator{
 	"<=":       astql.LE,
 	"LIKE":     astql.LIKE,
 	"NOT LIKE": astql.NotLike,
+	"IN":       astql.IN,
+	"NOT IN":   astql.NotIn,
 	// Vector operators (pgvector).
 	"<->": astql.VectorL2Distance,
 	"<#>": astql.VectorInnerProduct,
@@ -308,6 +310,46 @@ func (sb *Select[T]) OrderBy(field string, direction string) *Select[T] {
 	}
 
 	sb.builder = sb.builder.OrderBy(f, astqlDir)
+	return sb
+}
+
+// OrderByExpr adds an ORDER BY clause with an expression (field <op> param).
+// Useful for vector distance ordering with pgvector.
+// Direction must be "asc" or "desc" (case insensitive).
+//
+// Example:
+//
+//	.OrderByExpr("embedding", "<->", "query_embedding", "asc")
+func (sb *Select[T]) OrderByExpr(field, operator, param, direction string) *Select[T] {
+	if sb.err != nil {
+		return sb
+	}
+
+	astqlDir, err := validateDirection(direction)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	f, err := sb.instance.TryF(field)
+	if err != nil {
+		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return sb
+	}
+
+	p, err := sb.instance.TryP(param)
+	if err != nil {
+		sb.err = fmt.Errorf("invalid param %q: %w", param, err)
+		return sb
+	}
+
+	sb.builder = sb.builder.OrderByExpr(f, astqlOp, p, astqlDir)
 	return sb
 }
 

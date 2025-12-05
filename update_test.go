@@ -374,3 +374,154 @@ func TestUpdate_BatchOperations(t *testing.T) {
 		t.Logf("Batch update with AND SQL: %s", result.SQL)
 	})
 }
+
+func TestUpdate_ErrorPaths(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[updateTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("invalid Set field returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("nonexistent", "value").
+			Where("id", "=", "user_id").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid Set field")
+		}
+		if !strings.Contains(err.Error(), "nonexistent") {
+			t.Errorf("error should mention invalid field: %v", err)
+		}
+	})
+
+	t.Run("invalid Set param returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("name", "").
+			Where("id", "=", "user_id").
+			Render()
+		if err == nil {
+			t.Error("expected error for empty param")
+		}
+	})
+
+	t.Run("invalid Where field returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("name", "new_name").
+			Where("nonexistent", "=", "value").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid Where field")
+		}
+	})
+
+	t.Run("invalid WhereAnd field returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereAnd(C("nonexistent", "=", "value")).
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereAnd field")
+		}
+	})
+
+	t.Run("invalid WhereOr field returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereOr(C("nonexistent", "=", "value")).
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereOr field")
+		}
+	})
+
+	t.Run("invalid WhereNull field returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereNull("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereNull field")
+		}
+	})
+
+	t.Run("invalid WhereNotNull field returns error", func(t *testing.T) {
+		_, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereNotNull("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereNotNull field")
+		}
+	})
+
+	t.Run("error propagates through chain", func(t *testing.T) {
+		builder := cereal.Modify().
+			Set("bad_field", "value").
+			Set("name", "new_name"). // Should not override error
+			Where("id", "=", "user_id")
+		_, err := builder.Render()
+		if err == nil {
+			t.Error("expected error to propagate through chain")
+		}
+	})
+
+	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
+		result, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereAnd().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		// Should still have WHERE from the regular Where call
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+	})
+
+	t.Run("empty WhereOr is ignored", func(t *testing.T) {
+		result, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereOr().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+	})
+
+	t.Run("Null condition in WhereAnd", func(t *testing.T) {
+		result, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereAnd(Null("age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NULL") {
+			t.Errorf("SQL missing IS NULL: %s", result.SQL)
+		}
+	})
+
+	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
+		result, err := cereal.Modify().
+			Set("name", "new_name").
+			WhereOr(NotNull("age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NOT NULL") {
+			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+	})
+}

@@ -232,6 +232,46 @@ func (qb *Query[T]) OrderBy(field, direction string) *Query[T] {
 	return qb
 }
 
+// OrderByExpr adds an ORDER BY clause with an expression (field <op> param).
+// Useful for vector distance ordering with pgvector.
+// Direction must be "ASC" or "DESC" (case-insensitive).
+//
+// Example:
+//
+//	.OrderByExpr("embedding", "<->", "query_embedding", "ASC")
+func (qb *Query[T]) OrderByExpr(field, operator, param, direction string) *Query[T] {
+	if qb.err != nil {
+		return qb
+	}
+
+	astqlDir, err := validateDirection(direction)
+	if err != nil {
+		qb.err = err
+		return qb
+	}
+
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		qb.err = err
+		return qb
+	}
+
+	f, err := qb.instance.TryF(field)
+	if err != nil {
+		qb.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return qb
+	}
+
+	p, err := qb.instance.TryP(param)
+	if err != nil {
+		qb.err = fmt.Errorf("invalid param %q: %w", param, err)
+		return qb
+	}
+
+	qb.builder = qb.builder.OrderByExpr(f, astqlOp, p, astqlDir)
+	return qb
+}
+
 // Limit adds a LIMIT clause to restrict the number of rows returned.
 //
 // Example:

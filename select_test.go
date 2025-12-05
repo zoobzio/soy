@@ -504,3 +504,207 @@ func TestSelect_Validation(t *testing.T) {
 		t.Logf("Params: %v", result.RequiredParams)
 	})
 }
+
+func TestSelect_OrderByExpr(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[selectTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("OrderByExpr with vector distance operator", func(t *testing.T) {
+		result, err := cereal.Select().
+			OrderByExpr("id", "<->", "query_value", "asc").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "ORDER BY") {
+			t.Errorf("SQL missing ORDER BY: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "<->") {
+			t.Errorf("SQL missing <-> operator: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("OrderByExpr with invalid direction", func(t *testing.T) {
+		_, err := cereal.Select().
+			OrderByExpr("id", "<->", "query_value", "INVALID").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid direction")
+		}
+	})
+
+	t.Run("OrderByExpr with invalid operator", func(t *testing.T) {
+		_, err := cereal.Select().
+			OrderByExpr("id", "BADOP", "query_value", "asc").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid operator")
+		}
+	})
+
+	t.Run("OrderByExpr with invalid field", func(t *testing.T) {
+		_, err := cereal.Select().
+			OrderByExpr("nonexistent", "<->", "query_value", "asc").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("OrderByExpr with empty param", func(t *testing.T) {
+		_, err := cereal.Select().
+			OrderByExpr("id", "<->", "", "asc").
+			Render()
+		if err == nil {
+			t.Error("expected error for empty param")
+		}
+	})
+}
+
+func TestSelect_ErrorPaths(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[selectTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("invalid field in Fields returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			Fields("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("empty Fields is ignored", func(t *testing.T) {
+		result, err := cereal.Select().
+			Fields().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "SELECT") {
+			t.Errorf("SQL missing SELECT: %s", result.SQL)
+		}
+	})
+
+	t.Run("invalid Where field returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			Where("nonexistent", "=", "value").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid Where field")
+		}
+	})
+
+	t.Run("invalid Where param returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			Where("id", "=", "").
+			Render()
+		if err == nil {
+			t.Error("expected error for empty param")
+		}
+	})
+
+	t.Run("invalid OrderBy field returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			OrderBy("nonexistent", "asc").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid OrderBy field")
+		}
+	})
+
+	t.Run("error propagates through chain", func(t *testing.T) {
+		builder := cereal.Select().
+			Fields("bad_field").
+			Where("id", "=", "user_id")
+		_, err := builder.Render()
+		if err == nil {
+			t.Error("expected error to propagate through chain")
+		}
+	})
+
+	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
+		result, err := cereal.Select().
+			WhereAnd().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+	})
+
+	t.Run("empty WhereOr is ignored", func(t *testing.T) {
+		result, err := cereal.Select().
+			WhereOr().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+	})
+
+	t.Run("Null condition in WhereAnd", func(t *testing.T) {
+		result, err := cereal.Select().
+			WhereAnd(Null("age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NULL") {
+			t.Errorf("SQL missing IS NULL: %s", result.SQL)
+		}
+	})
+
+	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
+		result, err := cereal.Select().
+			WhereOr(NotNull("age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NOT NULL") {
+			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+	})
+
+	t.Run("invalid operator in condition returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			WhereAnd(C("age", "INVALID", "value")).
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid operator")
+		}
+	})
+
+	t.Run("invalid param in condition returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			WhereAnd(C("age", "=", "")).
+			Render()
+		if err == nil {
+			t.Error("expected error for empty param")
+		}
+	})
+}

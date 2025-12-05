@@ -301,3 +301,74 @@ func TestCreate_BatchOperations(t *testing.T) {
 		t.Logf("Batch upsert SQL: %s", result.SQL)
 	})
 }
+
+func TestCreate_ErrorPaths(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[createTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("invalid Set field propagates error", func(t *testing.T) {
+		_, err := cereal.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("nonexistent", "value").
+			Build().
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid Set field")
+		}
+		if !strings.Contains(err.Error(), "nonexistent") {
+			t.Errorf("error should mention invalid field: %v", err)
+		}
+	})
+
+	t.Run("invalid Set param propagates error", func(t *testing.T) {
+		_, err := cereal.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("name", "").
+			Build().
+			Render()
+		if err == nil {
+			t.Error("expected error for empty param")
+		}
+	})
+
+	t.Run("error propagates through DoUpdate Set chain", func(t *testing.T) {
+		builder := cereal.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("bad_field", "value").
+			Set("name", "name"). // valid field shouldn't override error
+			Build()
+		_, err := builder.Render()
+		if err == nil {
+			t.Error("expected error to propagate through Set chain")
+		}
+	})
+
+	t.Run("multiple valid sets work correctly", func(t *testing.T) {
+		result, err := cereal.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("name", "name").
+			Set("age", "age").
+			Build().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, `"name"`) {
+			t.Error("SQL missing name field")
+		}
+		if !strings.Contains(result.SQL, `"age"`) {
+			t.Error("SQL missing age field")
+		}
+	})
+}

@@ -347,3 +347,129 @@ func TestDelete_BatchOperations(t *testing.T) {
 		}
 	})
 }
+
+func TestDelete_ErrorPaths(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[deleteTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("invalid Where field returns error", func(t *testing.T) {
+		_, err := cereal.Remove().
+			Where("nonexistent", "=", "value").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid Where field")
+		}
+	})
+
+	t.Run("invalid WhereAnd field returns error", func(t *testing.T) {
+		_, err := cereal.Remove().
+			WhereAnd(C("nonexistent", "=", "value")).
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereAnd field")
+		}
+	})
+
+	t.Run("invalid WhereOr field returns error", func(t *testing.T) {
+		_, err := cereal.Remove().
+			WhereOr(C("nonexistent", "=", "value")).
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereOr field")
+		}
+	})
+
+	t.Run("invalid WhereNull field returns error", func(t *testing.T) {
+		_, err := cereal.Remove().
+			WhereNull("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereNull field")
+		}
+	})
+
+	t.Run("invalid WhereNotNull field returns error", func(t *testing.T) {
+		_, err := cereal.Remove().
+			WhereNotNull("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid WhereNotNull field")
+		}
+	})
+
+	t.Run("error propagates through chain", func(t *testing.T) {
+		builder := cereal.Remove().
+			Where("bad_field", "=", "value").
+			Where("id", "=", "user_id") // Should not override error
+		_, err := builder.Render()
+		if err == nil {
+			t.Error("expected error to propagate through chain")
+		}
+	})
+
+	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereAnd().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+	})
+
+	t.Run("empty WhereOr is ignored", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereOr().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+	})
+
+	t.Run("Null condition in WhereAnd", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereAnd(Null("age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NULL") {
+			t.Errorf("SQL missing IS NULL: %s", result.SQL)
+		}
+	})
+
+	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
+		result, err := cereal.Remove().
+			WhereOr(NotNull("age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NOT NULL") {
+			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+	})
+
+	t.Run("invalid operator in condition returns error", func(t *testing.T) {
+		_, err := cereal.Remove().
+			WhereAnd(C("age", "INVALID", "value")).
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid operator")
+		}
+	})
+}
