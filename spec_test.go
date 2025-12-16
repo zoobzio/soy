@@ -143,6 +143,47 @@ func TestQueryFromSpec(t *testing.T) {
 			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
 		}
 	})
+
+	t.Run("ForLocking modes", func(t *testing.T) {
+		testCases := []struct {
+			forLocking  string
+			expectedSQL string
+		}{
+			{"update", `SELECT * FROM "users" FOR UPDATE`},
+			{"no_key_update", `SELECT * FROM "users" FOR NO KEY UPDATE`},
+			{"share", `SELECT * FROM "users" FOR SHARE`},
+			{"key_share", `SELECT * FROM "users" FOR KEY SHARE`},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.forLocking, func(t *testing.T) {
+				spec := QuerySpec{
+					ForLocking: tc.forLocking,
+				}
+
+				q := cereal.QueryFromSpec(spec)
+				result := q.MustRender()
+
+				if result.SQL != tc.expectedSQL {
+					t.Errorf("Expected SQL %q, got %q", tc.expectedSQL, result.SQL)
+				}
+			})
+		}
+	})
+
+	t.Run("ForLocking empty string ignored", func(t *testing.T) {
+		spec := QuerySpec{
+			ForLocking: "",
+		}
+
+		q := cereal.QueryFromSpec(spec)
+		result := q.MustRender()
+
+		expectedSQL := `SELECT * FROM "users"`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
 }
 
 func TestSelectFromSpec(t *testing.T) {
@@ -205,6 +246,33 @@ func TestSelectFromSpec(t *testing.T) {
 		expectedSQL := `SELECT "id", "email" FROM "users" WHERE "email" = :user_email ORDER BY "name" DESC LIMIT 1`
 		if result.SQL != expectedSQL {
 			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+
+	t.Run("ForLocking modes", func(t *testing.T) {
+		testCases := []struct {
+			forLocking  string
+			expectedSQL string
+		}{
+			{"update", `SELECT * FROM "users" FOR UPDATE`},
+			{"no_key_update", `SELECT * FROM "users" FOR NO KEY UPDATE`},
+			{"share", `SELECT * FROM "users" FOR SHARE`},
+			{"key_share", `SELECT * FROM "users" FOR KEY SHARE`},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.forLocking, func(t *testing.T) {
+				spec := SelectSpec{
+					ForLocking: tc.forLocking,
+				}
+
+				s := cereal.SelectFromSpec(spec)
+				result := s.MustRender()
+
+				if result.SQL != tc.expectedSQL {
+					t.Errorf("Expected SQL %q, got %q", tc.expectedSQL, result.SQL)
+				}
+			})
 		}
 	})
 }

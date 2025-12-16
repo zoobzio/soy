@@ -708,3 +708,82 @@ func TestSelect_ErrorPaths(t *testing.T) {
 		}
 	})
 }
+
+func TestSelect_HavingClauses(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[selectTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("simple Having", func(t *testing.T) {
+		result, err := cereal.Select().
+			Fields("age").
+			GroupBy("age").
+			Having("age", ">", "min_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "HAVING") {
+			t.Errorf("SQL missing HAVING: %s", result.SQL)
+		}
+	})
+
+	t.Run("HavingAgg COUNT", func(t *testing.T) {
+		result, err := cereal.Select().
+			Fields("age").
+			GroupBy("age").
+			HavingAgg("COUNT", "", ">", "min_count").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "HAVING") {
+			t.Errorf("SQL missing HAVING: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "COUNT") {
+			t.Errorf("SQL missing COUNT: %s", result.SQL)
+		}
+	})
+
+	t.Run("HavingAgg SUM", func(t *testing.T) {
+		result, err := cereal.Select().
+			Fields("name").
+			GroupBy("name").
+			HavingAgg("SUM", "age", ">=", "threshold").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "SUM") {
+			t.Errorf("SQL missing SUM: %s", result.SQL)
+		}
+	})
+
+	t.Run("Having with invalid field", func(t *testing.T) {
+		_, err := cereal.Select().
+			Fields("age").
+			GroupBy("age").
+			Having("invalid_field", ">", "value").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field in Having")
+		}
+	})
+
+	t.Run("HavingAgg with invalid function", func(t *testing.T) {
+		_, err := cereal.Select().
+			Fields("age").
+			GroupBy("age").
+			HavingAgg("INVALID_FUNC", "*", ">", "value").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid function in HavingAgg")
+		}
+	})
+}

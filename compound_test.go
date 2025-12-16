@@ -620,3 +620,275 @@ func TestCompoundParams(t *testing.T) {
 		}
 	})
 }
+
+func TestCompoundChainingAllOperations(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := sqlx.MustConnect("sqlite3", ":memory:")
+	defer db.Close()
+
+	db.MustExec(`
+		CREATE TABLE users (
+			id INTEGER PRIMARY KEY,
+			email TEXT NOT NULL,
+			name TEXT,
+			age INTEGER
+		)
+	`)
+
+	cereal, err := New[compoundTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("Compound.UnionAll chaining", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		q3 := cereal.Query().Where("id", "=", "id3")
+
+		// First Union returns Compound, then UnionAll on Compound
+		compound := q1.Union(q2).UnionAll(q3)
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "id" = :q0_id1) UNION (SELECT * FROM "users" WHERE "id" = :q1_id2) UNION ALL (SELECT * FROM "users" WHERE "id" = :q2_id3)`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+
+	t.Run("Compound.Intersect chaining", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		q3 := cereal.Query().Where("id", "=", "id3")
+
+		compound := q1.Union(q2).Intersect(q3)
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "id" = :q0_id1) UNION (SELECT * FROM "users" WHERE "id" = :q1_id2) INTERSECT (SELECT * FROM "users" WHERE "id" = :q2_id3)`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+
+	t.Run("Compound.IntersectAll chaining", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		q3 := cereal.Query().Where("id", "=", "id3")
+
+		compound := q1.Union(q2).IntersectAll(q3)
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "id" = :q0_id1) UNION (SELECT * FROM "users" WHERE "id" = :q1_id2) INTERSECT ALL (SELECT * FROM "users" WHERE "id" = :q2_id3)`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+
+	t.Run("Compound.Except chaining", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		q3 := cereal.Query().Where("id", "=", "id3")
+
+		compound := q1.Union(q2).Except(q3)
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "id" = :q0_id1) UNION (SELECT * FROM "users" WHERE "id" = :q1_id2) EXCEPT (SELECT * FROM "users" WHERE "id" = :q2_id3)`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+
+	t.Run("Compound.ExceptAll chaining", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		q3 := cereal.Query().Where("id", "=", "id3")
+
+		compound := q1.Union(q2).ExceptAll(q3)
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "id" = :q0_id1) UNION (SELECT * FROM "users" WHERE "id" = :q1_id2) EXCEPT ALL (SELECT * FROM "users" WHERE "id" = :q2_id3)`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+
+	t.Run("Instance returns ASTQL", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+
+		compound := q1.Union(q2)
+		instance := compound.Instance()
+
+		if instance == nil {
+			t.Error("Instance() returned nil")
+		}
+	})
+}
+
+func TestCompoundErrorPropagation(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := sqlx.MustConnect("sqlite3", ":memory:")
+	defer db.Close()
+
+	db.MustExec(`
+		CREATE TABLE users (
+			id INTEGER PRIMARY KEY,
+			email TEXT NOT NULL,
+			name TEXT,
+			age INTEGER
+		)
+	`)
+
+	cereal, err := New[compoundTestUser](db, "users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("error propagates through Union", func(t *testing.T) {
+		q1 := cereal.Query().Where("invalid_field", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+
+		compound := q1.Union(q2)
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+
+	t.Run("error propagates through UnionAll", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("invalid_field", "=", "id2")
+
+		compound := q1.Union(q2).UnionAll(cereal.Query().Where("id", "=", "id3"))
+		// First union should fail because q2 has invalid field
+		// Actually q1.Union(q2) already has error from q2
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field in chained query")
+		}
+	})
+
+	t.Run("error in compound propagates to chained Intersect", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+
+		compound := q1.Union(q2).OrderBy("invalid_field", "asc")
+		compound2 := compound.Intersect(cereal.Query().Where("id", "=", "id3"))
+		_, err := compound2.Render()
+
+		if err == nil {
+			t.Error("Expected error to propagate")
+		}
+	})
+
+	t.Run("error in compound propagates to chained IntersectAll", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+
+		compound := q1.Union(q2).OrderBy("name", "invalid_direction")
+		compound2 := compound.IntersectAll(cereal.Query().Where("id", "=", "id3"))
+		_, err := compound2.Render()
+
+		if err == nil {
+			t.Error("Expected error to propagate")
+		}
+	})
+
+	t.Run("error in compound propagates to chained Except", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+
+		compound := q1.Union(q2).OrderBy("name", "bad")
+		compound2 := compound.Except(cereal.Query().Where("id", "=", "id3"))
+		_, err := compound2.Render()
+
+		if err == nil {
+			t.Error("Expected error to propagate")
+		}
+	})
+
+	t.Run("error in compound propagates to chained ExceptAll", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+
+		compound := q1.Union(q2).OrderBy("name", "wrong")
+		compound2 := compound.ExceptAll(cereal.Query().Where("id", "=", "id3"))
+		_, err := compound2.Render()
+
+		if err == nil {
+			t.Error("Expected error to propagate")
+		}
+	})
+
+	t.Run("other query error propagates through UnionAll", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		qBad := cereal.Query().Where("bad_field", "=", "id3")
+
+		compound := q1.Union(q2).UnionAll(qBad)
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field in other query")
+		}
+	})
+
+	t.Run("other query error propagates through Intersect", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		qBad := cereal.Query().Where("bad_field", "=", "id3")
+
+		compound := q1.Union(q2).Intersect(qBad)
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field in other query")
+		}
+	})
+
+	t.Run("other query error propagates through IntersectAll", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		qBad := cereal.Query().Where("bad_field", "=", "id3")
+
+		compound := q1.Union(q2).IntersectAll(qBad)
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field in other query")
+		}
+	})
+
+	t.Run("other query error propagates through Except", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		qBad := cereal.Query().Where("bad_field", "=", "id3")
+
+		compound := q1.Union(q2).Except(qBad)
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field in other query")
+		}
+	})
+
+	t.Run("other query error propagates through ExceptAll", func(t *testing.T) {
+		q1 := cereal.Query().Where("id", "=", "id1")
+		q2 := cereal.Query().Where("id", "=", "id2")
+		qBad := cereal.Query().Where("bad_field", "=", "id3")
+
+		compound := q1.Union(q2).ExceptAll(qBad)
+		_, err := compound.Render()
+
+		if err == nil {
+			t.Error("Expected error for invalid field in other query")
+		}
+	})
+}

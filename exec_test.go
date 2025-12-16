@@ -125,6 +125,38 @@ func TestExec_Insert(t *testing.T) {
 
 	ctx := context.Background()
 
+	t.Run("ConflictUpdate.Exec convenience method", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// First insert
+		_, err := c.Insert().Exec(ctx, &execTestUser{
+			Email: "conflict@example.com",
+			Name:  "Original",
+			Age:   intPtrExec(25),
+		})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		// Use the convenience Exec method directly on ConflictUpdate (not Build().Exec())
+		user, err := c.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("name", "name").
+			Exec(ctx, &execTestUser{
+				Email: "conflict@example.com",
+				Name:  "Updated",
+				Age:   intPtrExec(30),
+			})
+		if err != nil {
+			t.Fatalf("ConflictUpdate.Exec() failed: %v", err)
+		}
+
+		if user.Name != "Updated" {
+			t.Errorf("expected name Updated, got %s", user.Name)
+		}
+	})
+
 	t.Run("Insert.Exec", func(t *testing.T) {
 		truncateExecTestTable(t, tdb.db)
 
@@ -712,6 +744,111 @@ func TestExec_Batch(t *testing.T) {
 			ExecBatch(ctx, params)
 		if err != nil {
 			t.Fatalf("Remove().ExecBatch() failed: %v", err)
+		}
+
+		if affected != 2 {
+			t.Errorf("expected 2 rows affected, got %d", affected)
+		}
+
+		// Verify only one user remains
+		users, err := c.Query().Exec(ctx, nil)
+		if err != nil {
+			t.Fatalf("Query failed: %v", err)
+		}
+		if len(users) != 1 {
+			t.Errorf("expected 1 user remaining, got %d", len(users))
+		}
+	})
+
+	t.Run("Modify.ExecBatchTx", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// Insert test data
+		for i := 0; i < 3; i++ {
+			_, err := c.Insert().Exec(ctx, &execTestUser{
+				Email: "modifybatchtx" + string(rune('a'+i)) + "@example.com",
+				Name:  "User " + string(rune('A'+i)),
+				Age:   intPtrExec(25),
+			})
+			if err != nil {
+				t.Fatalf("Insert failed: %v", err)
+			}
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		params := []map[string]any{
+			{"email": "modifybatchtxa@example.com", "new_name": "Updated A"},
+			{"email": "modifybatchtxb@example.com", "new_name": "Updated B"},
+		}
+
+		affected, err := c.Modify().
+			Set("name", "new_name").
+			Where("email", "=", "email").
+			ExecBatchTx(ctx, tx, params)
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("Modify().ExecBatchTx() failed: %v", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit() failed: %v", err)
+		}
+
+		if affected != 2 {
+			t.Errorf("expected 2 rows affected, got %d", affected)
+		}
+
+		// Verify updates
+		user, err := c.Select().
+			Where("email", "=", "email").
+			Exec(ctx, map[string]any{"email": "modifybatchtxa@example.com"})
+		if err != nil {
+			t.Fatalf("Select failed: %v", err)
+		}
+		if user.Name != "Updated A" {
+			t.Errorf("expected name 'Updated A', got %s", user.Name)
+		}
+	})
+
+	t.Run("Remove.ExecBatchTx", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// Insert test data
+		for i := 0; i < 3; i++ {
+			_, err := c.Insert().Exec(ctx, &execTestUser{
+				Email: "removebatchtx" + string(rune('a'+i)) + "@example.com",
+				Name:  "User " + string(rune('A'+i)),
+				Age:   intPtrExec(25),
+			})
+			if err != nil {
+				t.Fatalf("Insert failed: %v", err)
+			}
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		params := []map[string]any{
+			{"email": "removebatchtxa@example.com"},
+			{"email": "removebatchtxb@example.com"},
+		}
+
+		affected, err := c.Remove().
+			Where("email", "=", "email").
+			ExecBatchTx(ctx, tx, params)
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("Remove().ExecBatchTx() failed: %v", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit() failed: %v", err)
 		}
 
 		if affected != 2 {

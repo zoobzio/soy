@@ -326,3 +326,217 @@ func TestTransaction_Integration(t *testing.T) {
 		tx.Commit()
 	})
 }
+
+func TestExecBatchTx_Integration(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.cleanup(t)
+	createTestTable(t, tdb.db)
+
+	c, err := cereal.New[TestUser](tdb.db, "test_users")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	ctx := context.Background()
+
+	t.Run("Update ExecBatchTx success", func(t *testing.T) {
+		truncateTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &TestUser{Email: "user1@example.com", Name: "User 1", Age: intPtr(25)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+		_, err = c.Insert().Exec(ctx, &TestUser{Email: "user2@example.com", Name: "User 2", Age: intPtr(30)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		// Batch update within transaction
+		paramsList := []map[string]any{
+			{"user_email": "user1@example.com", "new_name": "Updated User 1"},
+			{"user_email": "user2@example.com", "new_name": "Updated User 2"},
+		}
+
+		affected, err := c.Modify().
+			Set("name", "new_name").
+			Where("email", "=", "user_email").
+			ExecBatchTx(ctx, tx, paramsList)
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("ExecBatchTx failed: %v", err)
+		}
+		if affected != 2 {
+			t.Errorf("expected 2 rows affected, got %d", affected)
+		}
+
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit failed: %v", err)
+		}
+
+		// Verify updates
+		users, err := c.Query().Exec(ctx, nil)
+		if err != nil {
+			t.Fatalf("Query failed: %v", err)
+		}
+		for _, u := range users {
+			if !containsString(u.Name, "Updated") {
+				t.Errorf("expected name to contain 'Updated', got %s", u.Name)
+			}
+		}
+	})
+
+	t.Run("Update ExecBatchTx rollback", func(t *testing.T) {
+		truncateTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &TestUser{Email: "user1@example.com", Name: "User 1", Age: intPtr(25)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		paramsList := []map[string]any{
+			{"user_email": "user1@example.com", "new_name": "Should Not Persist"},
+		}
+
+		_, err = c.Modify().
+			Set("name", "new_name").
+			Where("email", "=", "user_email").
+			ExecBatchTx(ctx, tx, paramsList)
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("ExecBatchTx failed: %v", err)
+		}
+
+		// Rollback
+		if err := tx.Rollback(); err != nil {
+			t.Fatalf("Rollback failed: %v", err)
+		}
+
+		// Verify no changes
+		user, err := c.Select().Where("email", "=", "email").Exec(ctx, map[string]any{"email": "user1@example.com"})
+		if err != nil {
+			t.Fatalf("Select failed: %v", err)
+		}
+		if user.Name != "User 1" {
+			t.Errorf("expected name 'User 1', got %s", user.Name)
+		}
+	})
+
+	t.Run("Delete ExecBatchTx success", func(t *testing.T) {
+		truncateTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &TestUser{Email: "delete1@example.com", Name: "Delete 1", Age: intPtr(25)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+		_, err = c.Insert().Exec(ctx, &TestUser{Email: "delete2@example.com", Name: "Delete 2", Age: intPtr(30)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+		_, err = c.Insert().Exec(ctx, &TestUser{Email: "keep@example.com", Name: "Keep", Age: intPtr(35)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		// Batch delete within transaction
+		paramsList := []map[string]any{
+			{"user_email": "delete1@example.com"},
+			{"user_email": "delete2@example.com"},
+		}
+
+		affected, err := c.Remove().
+			Where("email", "=", "user_email").
+			ExecBatchTx(ctx, tx, paramsList)
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("ExecBatchTx failed: %v", err)
+		}
+		if affected != 2 {
+			t.Errorf("expected 2 rows affected, got %d", affected)
+		}
+
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit failed: %v", err)
+		}
+
+		// Verify deletes
+		count, err := c.Count().Exec(ctx, nil)
+		if err != nil {
+			t.Fatalf("Count failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 user remaining, got %v", count)
+		}
+	})
+
+	t.Run("Delete ExecBatchTx rollback", func(t *testing.T) {
+		truncateTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &TestUser{Email: "user1@example.com", Name: "User 1", Age: intPtr(25)})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		paramsList := []map[string]any{
+			{"user_email": "user1@example.com"},
+		}
+
+		_, err = c.Remove().
+			Where("email", "=", "user_email").
+			ExecBatchTx(ctx, tx, paramsList)
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("ExecBatchTx failed: %v", err)
+		}
+
+		// Rollback
+		if err := tx.Rollback(); err != nil {
+			t.Fatalf("Rollback failed: %v", err)
+		}
+
+		// Verify user still exists
+		count, err := c.Count().Exec(ctx, nil)
+		if err != nil {
+			t.Fatalf("Count failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 user after rollback, got %v", count)
+		}
+	})
+}
+
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || s != "" && containsStringHelper(s, substr))
+}
+
+func containsStringHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
