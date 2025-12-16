@@ -38,16 +38,35 @@ type Condition struct {
 
 // operatorMap translates string operators to ASTQL operators.
 var operatorMap = map[string]astql.Operator{
-	"=":        astql.EQ,
-	"!=":       astql.NE,
-	">":        astql.GT,
-	">=":       astql.GE,
-	"<":        astql.LT,
-	"<=":       astql.LE,
-	"LIKE":     astql.LIKE,
-	"NOT LIKE": astql.NotLike,
-	"IN":       astql.IN,
-	"NOT IN":   astql.NotIn,
+	// Basic comparison operators.
+	"=":  astql.EQ,
+	"!=": astql.NE,
+	">":  astql.GT,
+	">=": astql.GE,
+	"<":  astql.LT,
+	"<=": astql.LE,
+
+	// Pattern matching operators.
+	"LIKE":      astql.LIKE,
+	"NOT LIKE":  astql.NotLike,
+	"ILIKE":     astql.ILIKE,
+	"NOT ILIKE": astql.NotILike,
+
+	// Set membership operators.
+	"IN":     astql.IN,
+	"NOT IN": astql.NotIn,
+
+	// Regex operators (PostgreSQL).
+	"~":   astql.RegexMatch,
+	"~*":  astql.RegexIMatch,
+	"!~":  astql.NotRegexMatch,
+	"!~*": astql.NotRegexIMatch,
+
+	// Array operators (PostgreSQL).
+	"@>": astql.ArrayContains,
+	"<@": astql.ArrayContainedBy,
+	"&&": astql.ArrayOverlap,
+
 	// Vector operators (pgvector).
 	"<->": astql.VectorL2Distance,
 	"<#>": astql.VectorInnerProduct,
@@ -61,11 +80,17 @@ var directionMap = map[string]astql.Direction{
 	"desc": astql.DESC,
 }
 
+// nullsMap translates string nulls ordering to ASTQL nulls ordering.
+var nullsMap = map[string]astql.NullsOrdering{
+	"first": astql.NullsFirst,
+	"last":  astql.NullsLast,
+}
+
 // validateOperator converts a string operator to ASTQL operator.
 func validateOperator(op string) (astql.Operator, error) {
 	astqlOp, ok := operatorMap[op]
 	if !ok {
-		return "", fmt.Errorf("invalid operator %q, must be one of: =, !=, >, >=, <, <=, LIKE, NOT LIKE, <->, <#>, <=>, <+>", op)
+		return "", fmt.Errorf("invalid operator %q, supported: =, !=, >, >=, <, <=, LIKE, NOT LIKE, ILIKE, NOT ILIKE, IN, NOT IN, ~, ~*, !~, !~*, @>, <@, &&, <->, <#>, <=>, <+>", op)
 	}
 	return astqlOp, nil
 }
@@ -78,6 +103,16 @@ func validateDirection(dir string) (astql.Direction, error) {
 		return "", fmt.Errorf("invalid direction %q, must be 'asc' or 'desc'", dir)
 	}
 	return astqlDir, nil
+}
+
+// validateNulls converts a string nulls ordering to ASTQL nulls ordering.
+func validateNulls(nulls string) (astql.NullsOrdering, error) {
+	lower := strings.ToLower(nulls)
+	astqlNulls, ok := nullsMap[lower]
+	if !ok {
+		return "", fmt.Errorf("invalid nulls ordering %q, must be 'first' or 'last'", nulls)
+	}
+	return astqlNulls, nil
 }
 
 // Fields specifies which fields to select. Field names must exist in the schema.
@@ -313,6 +348,40 @@ func (sb *Select[T]) OrderBy(field string, direction string) *Select[T] {
 	return sb
 }
 
+// OrderByNulls adds an ORDER BY clause with NULLS FIRST or NULLS LAST.
+// Direction must be "asc" or "desc" (case insensitive).
+// Nulls must be "first" or "last" (case insensitive).
+//
+// Example:
+//
+//	.OrderByNulls("created_at", "desc", "last")  // ORDER BY "created_at" DESC NULLS LAST
+func (sb *Select[T]) OrderByNulls(field, direction, nulls string) *Select[T] {
+	if sb.err != nil {
+		return sb
+	}
+
+	astqlDir, err := validateDirection(direction)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	astqlNulls, err := validateNulls(nulls)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	f, err := sb.instance.TryF(field)
+	if err != nil {
+		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return sb
+	}
+
+	sb.builder = sb.builder.OrderByNulls(f, astqlDir, astqlNulls)
+	return sb
+}
+
 // OrderByExpr adds an ORDER BY clause with an expression (field <op> param).
 // Useful for vector distance ordering with pgvector.
 // Direction must be "asc" or "desc" (case insensitive).
@@ -368,6 +437,154 @@ func (sb *Select[T]) Offset(n int) *Select[T] {
 // Distinct adds DISTINCT to the SELECT query.
 func (sb *Select[T]) Distinct() *Select[T] {
 	sb.builder = sb.builder.Distinct()
+	return sb
+}
+
+// DistinctOn adds DISTINCT ON (PostgreSQL-specific) to the SELECT query.
+// Returns only the first row for each distinct combination of the specified fields.
+//
+// Example:
+//
+//	.DistinctOn("user_id").OrderBy("created_at", "desc")  // First row per user_id
+func (sb *Select[T]) DistinctOn(fields ...string) *Select[T] {
+	if sb.err != nil {
+		return sb
+	}
+
+	if len(fields) == 0 {
+		return sb
+	}
+
+	astqlFields := sb.instance.Fields()
+	for _, field := range fields {
+		f, err := sb.instance.TryF(field)
+		if err != nil {
+			sb.err = fmt.Errorf("invalid field %q: %w", field, err)
+			return sb
+		}
+		astqlFields = append(astqlFields, f)
+	}
+
+	sb.builder = sb.builder.DistinctOn(astqlFields...)
+	return sb
+}
+
+// GroupBy adds a GROUP BY clause.
+// Multiple calls add additional grouping fields.
+//
+// Example:
+//
+//	.GroupBy("status").GroupBy("category")
+func (sb *Select[T]) GroupBy(fields ...string) *Select[T] {
+	if sb.err != nil {
+		return sb
+	}
+
+	astqlFields := sb.instance.Fields()
+	for _, field := range fields {
+		f, err := sb.instance.TryF(field)
+		if err != nil {
+			sb.err = fmt.Errorf("invalid field %q: %w", field, err)
+			return sb
+		}
+		astqlFields = append(astqlFields, f)
+	}
+	sb.builder = sb.builder.GroupBy(astqlFields...)
+	return sb
+}
+
+// Having adds a HAVING condition. Must be used after GroupBy.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.GroupBy("status").Having("age", ">", "min_age")
+func (sb *Select[T]) Having(field, operator, param string) *Select[T] {
+	if sb.err != nil {
+		return sb
+	}
+
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	f, err := sb.instance.TryF(field)
+	if err != nil {
+		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return sb
+	}
+
+	p, err := sb.instance.TryP(param)
+	if err != nil {
+		sb.err = fmt.Errorf("invalid param %q: %w", param, err)
+		return sb
+	}
+
+	condition, err := sb.instance.TryC(f, astqlOp, p)
+	if err != nil {
+		sb.err = fmt.Errorf("invalid condition: %w", err)
+		return sb
+	}
+
+	sb.builder = sb.builder.Having(condition)
+	return sb
+}
+
+// HavingAgg adds an aggregate HAVING condition. Must be used after GroupBy.
+// Supports COUNT(*), SUM, AVG, MIN, MAX aggregate functions.
+//
+// Example:
+//
+//	.GroupBy("status").HavingAgg("count", "", ">", "min_count")  // COUNT(*) > :min_count
+//	.GroupBy("status").HavingAgg("sum", "amount", ">=", "min_total")  // SUM("amount") >= :min_total
+func (sb *Select[T]) HavingAgg(aggFunc, field, operator, param string) *Select[T] {
+	if sb.err != nil {
+		return sb
+	}
+
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	aggCond, err := buildAggregateCondition(sb.instance, aggFunc, field, param, astqlOp)
+	if err != nil {
+		sb.err = err
+		return sb
+	}
+
+	sb.builder = sb.builder.HavingAgg(aggCond)
+	return sb
+}
+
+// ForUpdate adds FOR UPDATE row locking to the SELECT query.
+// Locks selected rows for update, blocking other transactions from modifying them.
+func (sb *Select[T]) ForUpdate() *Select[T] {
+	sb.builder = sb.builder.ForUpdate()
+	return sb
+}
+
+// ForNoKeyUpdate adds FOR NO KEY UPDATE row locking to the SELECT query.
+// Similar to FOR UPDATE but allows SELECT FOR KEY SHARE on the same rows.
+func (sb *Select[T]) ForNoKeyUpdate() *Select[T] {
+	sb.builder = sb.builder.ForNoKeyUpdate()
+	return sb
+}
+
+// ForShare adds FOR SHARE row locking to the SELECT query.
+// Locks selected rows in share mode, allowing other SELECT FOR SHARE but blocking updates.
+func (sb *Select[T]) ForShare() *Select[T] {
+	sb.builder = sb.builder.ForShare()
+	return sb
+}
+
+// ForKeyShare adds FOR KEY SHARE row locking to the SELECT query.
+// The weakest lock level, blocks only FOR UPDATE but allows other locks.
+func (sb *Select[T]) ForKeyShare() *Select[T] {
+	sb.builder = sb.builder.ForKeyShare()
 	return sb
 }
 
@@ -540,4 +757,47 @@ func NotNull(field string) Condition {
 		operator: "IS NOT NULL",
 		isNull:   true,
 	}
+}
+
+// buildAggregateCondition creates an ASTQL AggregateCondition from string parameters.
+// aggFunc: "count", "sum", "avg", "min", "max", "count_distinct"
+// field: field name (empty string for COUNT(*))
+// op: the ASTQL operator
+// param: parameter name
+func buildAggregateCondition(instance *astql.ASTQL, aggFunc, field, param string, op astql.Operator) (astql.AggregateCondition, error) {
+	var aggType astql.AggregateFunc
+	switch strings.ToLower(aggFunc) {
+	case "count":
+		aggType = astql.AggCountField
+	case "count_distinct":
+		aggType = astql.AggCountDistinct
+	case "sum":
+		aggType = astql.AggSum
+	case "avg":
+		aggType = astql.AggAvg
+	case "min":
+		aggType = astql.AggMin
+	case "max":
+		aggType = astql.AggMax
+	default:
+		return astql.AggregateCondition{}, fmt.Errorf("invalid aggregate function %q, must be one of: count, sum, avg, min, max, count_distinct", aggFunc)
+	}
+
+	// Validate and create param
+	p, err := instance.TryP(param)
+	if err != nil {
+		return astql.AggregateCondition{}, fmt.Errorf("invalid param %q: %w", param, err)
+	}
+
+	// Handle field (nil for COUNT(*))
+	if field == "" {
+		return instance.TryAggC(aggType, nil, op, p)
+	}
+
+	f, err := instance.TryF(field)
+	if err != nil {
+		return astql.AggregateCondition{}, fmt.Errorf("invalid field %q: %w", field, err)
+	}
+
+	return instance.TryAggC(aggType, &f, op, p)
 }

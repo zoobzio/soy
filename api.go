@@ -83,6 +83,17 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+// Constants for conflict actions and row locking modes.
+const (
+	conflictActionUpdate  = "update"
+	conflictActionNothing = "nothing"
+	lockModeUpdate        = "update"
+	lockModeNoKeyUpdate   = "no_key_update"
+	lockModeShare         = "share"
+	lockModeKeyShare      = "key_share"
+	logicOR               = "OR"
+)
+
 // Cereal provides a type-safe query API for a specific model type.
 // Each instance holds the ASTQL schema and metadata for building validated queries.
 type Cereal[T any] struct {
@@ -499,6 +510,45 @@ func (c *Cereal[T]) Insert() *Create[T] {
 	}
 }
 
+// InsertFromSpec builds a Create from a CreateSpec (JSON-serializable specification).
+// This allows queries to be constructed from external sources like LLM-generated JSON.
+//
+// Example:
+//
+//	spec := CreateSpec{
+//	    OnConflict:     []string{"email"},
+//	    ConflictAction: "update",
+//	    ConflictSet:    map[string]string{"name": "updated_name"},
+//	}
+//	ins := cereal.InsertFromSpec(spec)
+//	inserted, err := ins.Exec(ctx, &user)
+func (c *Cereal[T]) InsertFromSpec(spec CreateSpec) *Create[T] {
+	create := c.Insert()
+
+	// If no conflict handling, return as-is
+	if len(spec.OnConflict) == 0 {
+		return create
+	}
+
+	// Add ON CONFLICT
+	conflict := create.OnConflict(spec.OnConflict...)
+
+	// Apply conflict action
+	switch strings.ToLower(spec.ConflictAction) {
+	case conflictActionNothing:
+		return conflict.DoNothing()
+	case conflictActionUpdate:
+		update := conflict.DoUpdate()
+		for field, param := range spec.ConflictSet {
+			update = update.Set(field, param)
+		}
+		return update.Build()
+	default:
+		// If action not specified but columns are, default to DO NOTHING
+		return conflict.DoNothing()
+	}
+}
+
 // Modify returns an Update for building UPDATE queries.
 // The  is pre-configured with the table for this Cereal instance
 // and automatically adds RETURNING for all columns.
@@ -611,20 +661,36 @@ func (c *Cereal[T]) QueryFromSpec(spec QuerySpec) *Query[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				q = q.WhereNull(cond.Field)
-			} else {
-				q = q.WhereNotNull(cond.Field)
-			}
-		} else {
-			q = q.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		q = applyConditionToQuery(q, cond)
 	}
 
 	// Add ORDER BY clauses
 	for _, orderBy := range spec.OrderBy {
-		q = q.OrderBy(orderBy.Field, orderBy.Direction)
+		switch {
+		case orderBy.IsExpression():
+			q = q.OrderByExpr(orderBy.Field, orderBy.Operator, orderBy.Param, orderBy.Direction)
+		case orderBy.HasNulls():
+			q = q.OrderByNulls(orderBy.Field, orderBy.Direction, orderBy.Nulls)
+		default:
+			q = q.OrderBy(orderBy.Field, orderBy.Direction)
+		}
+	}
+
+	// Add GROUP BY if specified
+	if len(spec.GroupBy) > 0 {
+		q = q.GroupBy(spec.GroupBy...)
+	}
+
+	// Add HAVING conditions (simple field-based)
+	for _, cond := range spec.Having {
+		if !cond.IsGroup() {
+			q = q.Having(cond.Field, cond.Operator, cond.Param)
+		}
+	}
+
+	// Add HAVING aggregate conditions
+	for _, agg := range spec.HavingAgg {
+		q = q.HavingAgg(agg.Func, agg.Field, agg.Operator, agg.Param)
 	}
 
 	// Add LIMIT if specified
@@ -637,7 +703,73 @@ func (c *Cereal[T]) QueryFromSpec(spec QuerySpec) *Query[T] {
 		q = q.Offset(*spec.Offset)
 	}
 
+	// Add DISTINCT if specified
+	if spec.Distinct {
+		q = q.Distinct()
+	}
+
+	// Add DISTINCT ON if specified (PostgreSQL)
+	if len(spec.DistinctOn) > 0 {
+		q = q.DistinctOn(spec.DistinctOn...)
+	}
+
+	// Add row locking if specified
+	q = applyForLocking(q, spec.ForLocking)
+
 	return q
+}
+
+// applyConditionToQuery applies a ConditionSpec to a Query builder.
+// Handles both simple conditions and condition groups (AND/OR).
+func applyConditionToQuery[T any](q *Query[T], cond ConditionSpec) *Query[T] {
+	if cond.IsGroup() {
+		conditions := ToConditions(cond.Group)
+		if strings.EqualFold(cond.Logic, logicOR) {
+			return q.WhereOr(conditions...)
+		}
+		return q.WhereAnd(conditions...)
+	}
+
+	// Simple condition
+	if cond.IsNull {
+		if cond.Operator == opIsNull {
+			return q.WhereNull(cond.Field)
+		}
+		return q.WhereNotNull(cond.Field)
+	}
+	return q.Where(cond.Field, cond.Operator, cond.Param)
+}
+
+// applyForLocking applies row locking to a Query based on the spec.
+func applyForLocking[T any](q *Query[T], forLocking string) *Query[T] {
+	switch strings.ToLower(forLocking) {
+	case lockModeUpdate:
+		return q.ForUpdate()
+	case lockModeNoKeyUpdate:
+		return q.ForNoKeyUpdate()
+	case lockModeShare:
+		return q.ForShare()
+	case lockModeKeyShare:
+		return q.ForKeyShare()
+	default:
+		return q
+	}
+}
+
+// applyForLockingToSelect applies row locking to a Select based on the spec.
+func applyForLockingToSelect[T any](s *Select[T], forLocking string) *Select[T] {
+	switch strings.ToLower(forLocking) {
+	case lockModeUpdate:
+		return s.ForUpdate()
+	case lockModeNoKeyUpdate:
+		return s.ForNoKeyUpdate()
+	case lockModeShare:
+		return s.ForShare()
+	case lockModeKeyShare:
+		return s.ForKeyShare()
+	default:
+		return s
+	}
 }
 
 // SelectFromSpec builds a Select from a SelectSpec (JSON-serializable specification).
@@ -663,20 +795,36 @@ func (c *Cereal[T]) SelectFromSpec(spec SelectSpec) *Select[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				s = s.WhereNull(cond.Field)
-			} else {
-				s = s.WhereNotNull(cond.Field)
-			}
-		} else {
-			s = s.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		s = applyConditionToSelect(s, cond)
 	}
 
 	// Add ORDER BY clauses
 	for _, orderBy := range spec.OrderBy {
-		s = s.OrderBy(orderBy.Field, orderBy.Direction)
+		switch {
+		case orderBy.IsExpression():
+			s = s.OrderByExpr(orderBy.Field, orderBy.Operator, orderBy.Param, orderBy.Direction)
+		case orderBy.HasNulls():
+			s = s.OrderByNulls(orderBy.Field, orderBy.Direction, orderBy.Nulls)
+		default:
+			s = s.OrderBy(orderBy.Field, orderBy.Direction)
+		}
+	}
+
+	// Add GROUP BY if specified
+	if len(spec.GroupBy) > 0 {
+		s = s.GroupBy(spec.GroupBy...)
+	}
+
+	// Add HAVING conditions (simple field-based)
+	for _, cond := range spec.Having {
+		if !cond.IsGroup() {
+			s = s.Having(cond.Field, cond.Operator, cond.Param)
+		}
+	}
+
+	// Add HAVING aggregate conditions
+	for _, agg := range spec.HavingAgg {
+		s = s.HavingAgg(agg.Func, agg.Field, agg.Operator, agg.Param)
 	}
 
 	// Add LIMIT if specified
@@ -694,7 +842,36 @@ func (c *Cereal[T]) SelectFromSpec(spec SelectSpec) *Select[T] {
 		s = s.Distinct()
 	}
 
+	// Add DISTINCT ON if specified (PostgreSQL)
+	if len(spec.DistinctOn) > 0 {
+		s = s.DistinctOn(spec.DistinctOn...)
+	}
+
+	// Add row locking if specified
+	s = applyForLockingToSelect(s, spec.ForLocking)
+
 	return s
+}
+
+// applyConditionToSelect applies a ConditionSpec to a Select builder.
+// Handles both simple conditions and condition groups (AND/OR).
+func applyConditionToSelect[T any](s *Select[T], cond ConditionSpec) *Select[T] {
+	if cond.IsGroup() {
+		conditions := ToConditions(cond.Group)
+		if strings.EqualFold(cond.Logic, logicOR) {
+			return s.WhereOr(conditions...)
+		}
+		return s.WhereAnd(conditions...)
+	}
+
+	// Simple condition
+	if cond.IsNull {
+		if cond.Operator == opIsNull {
+			return s.WhereNull(cond.Field)
+		}
+		return s.WhereNotNull(cond.Field)
+	}
+	return s.Where(cond.Field, cond.Operator, cond.Param)
 }
 
 // ModifyFromSpec builds an Update from an UpdateSpec (JSON-serializable specification).
@@ -723,18 +900,31 @@ func (c *Cereal[T]) ModifyFromSpec(spec UpdateSpec) *Update[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				u = u.WhereNull(cond.Field)
-			} else {
-				u = u.WhereNotNull(cond.Field)
-			}
-		} else {
-			u = u.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		u = applyConditionToUpdate(u, cond)
 	}
 
 	return u
+}
+
+// applyConditionToUpdate applies a ConditionSpec to an Update builder.
+// Handles both simple conditions and condition groups (AND/OR).
+func applyConditionToUpdate[T any](u *Update[T], cond ConditionSpec) *Update[T] {
+	if cond.IsGroup() {
+		conditions := ToConditions(cond.Group)
+		if strings.EqualFold(cond.Logic, logicOR) {
+			return u.WhereOr(conditions...)
+		}
+		return u.WhereAnd(conditions...)
+	}
+
+	// Simple condition
+	if cond.IsNull {
+		if cond.Operator == opIsNull {
+			return u.WhereNull(cond.Field)
+		}
+		return u.WhereNotNull(cond.Field)
+	}
+	return u.Where(cond.Field, cond.Operator, cond.Param)
 }
 
 // RemoveFromSpec builds a Delete from a DeleteSpec (JSON-serializable specification).
@@ -754,18 +944,31 @@ func (c *Cereal[T]) RemoveFromSpec(spec DeleteSpec) *Delete[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				d = d.WhereNull(cond.Field)
-			} else {
-				d = d.WhereNotNull(cond.Field)
-			}
-		} else {
-			d = d.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		d = applyConditionToDelete(d, cond)
 	}
 
 	return d
+}
+
+// applyConditionToDelete applies a ConditionSpec to a Delete builder.
+// Handles both simple conditions and condition groups (AND/OR).
+func applyConditionToDelete[T any](d *Delete[T], cond ConditionSpec) *Delete[T] {
+	if cond.IsGroup() {
+		conditions := ToConditions(cond.Group)
+		if strings.EqualFold(cond.Logic, logicOR) {
+			return d.WhereOr(conditions...)
+		}
+		return d.WhereAnd(conditions...)
+	}
+
+	// Simple condition
+	if cond.IsNull {
+		if cond.Operator == opIsNull {
+			return d.WhereNull(cond.Field)
+		}
+		return d.WhereNotNull(cond.Field)
+	}
+	return d.Where(cond.Field, cond.Operator, cond.Param)
 }
 
 // CountFromSpec builds a Count aggregate from an AggregateSpec (JSON-serializable specification).
@@ -785,15 +988,7 @@ func (c *Cereal[T]) CountFromSpec(spec AggregateSpec) *Aggregate[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				agg = agg.WhereNull(cond.Field)
-			} else {
-				agg = agg.WhereNotNull(cond.Field)
-			}
-		} else {
-			agg = agg.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		agg = applyConditionToAggregate(agg, cond)
 	}
 
 	return agg
@@ -817,15 +1012,7 @@ func (c *Cereal[T]) SumFromSpec(spec AggregateSpec) *Aggregate[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				agg = agg.WhereNull(cond.Field)
-			} else {
-				agg = agg.WhereNotNull(cond.Field)
-			}
-		} else {
-			agg = agg.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		agg = applyConditionToAggregate(agg, cond)
 	}
 
 	return agg
@@ -838,15 +1025,7 @@ func (c *Cereal[T]) AvgFromSpec(spec AggregateSpec) *Aggregate[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				agg = agg.WhereNull(cond.Field)
-			} else {
-				agg = agg.WhereNotNull(cond.Field)
-			}
-		} else {
-			agg = agg.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		agg = applyConditionToAggregate(agg, cond)
 	}
 
 	return agg
@@ -859,15 +1038,7 @@ func (c *Cereal[T]) MinFromSpec(spec AggregateSpec) *Aggregate[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				agg = agg.WhereNull(cond.Field)
-			} else {
-				agg = agg.WhereNotNull(cond.Field)
-			}
-		} else {
-			agg = agg.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		agg = applyConditionToAggregate(agg, cond)
 	}
 
 	return agg
@@ -880,21 +1051,136 @@ func (c *Cereal[T]) MaxFromSpec(spec AggregateSpec) *Aggregate[T] {
 
 	// Add WHERE conditions
 	for _, cond := range spec.Where {
-		if cond.IsNull {
-			if cond.Operator == opIsNull {
-				agg = agg.WhereNull(cond.Field)
-			} else {
-				agg = agg.WhereNotNull(cond.Field)
-			}
-		} else {
-			agg = agg.Where(cond.Field, cond.Operator, cond.Param)
-		}
+		agg = applyConditionToAggregate(agg, cond)
 	}
 
 	return agg
 }
 
+// applyConditionToAggregate applies a ConditionSpec to an Aggregate builder.
+// Handles both simple conditions and condition groups (AND/OR).
+func applyConditionToAggregate[T any](agg *Aggregate[T], cond ConditionSpec) *Aggregate[T] {
+	if cond.IsGroup() {
+		conditions := ToConditions(cond.Group)
+		if strings.EqualFold(cond.Logic, logicOR) {
+			return agg.WhereOr(conditions...)
+		}
+		return agg.WhereAnd(conditions...)
+	}
+
+	// Simple condition
+	if cond.IsNull {
+		if cond.Operator == opIsNull {
+			return agg.WhereNull(cond.Field)
+		}
+		return agg.WhereNotNull(cond.Field)
+	}
+	return agg.Where(cond.Field, cond.Operator, cond.Param)
+}
+
 // contains checks if a string contains a substring (case-insensitive).
 func contains(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+// CompoundFromSpec builds a Compound query from a CompoundQuerySpec (JSON-serializable specification).
+// This allows compound queries (UNION, INTERSECT, EXCEPT) to be constructed from external sources.
+//
+// Example:
+//
+//	spec := CompoundQuerySpec{
+//	    Base: QuerySpec{
+//	        Fields: []string{"id", "name"},
+//	        Where:  []ConditionSpec{{Field: "status", Operator: "=", Param: "active"}},
+//	    },
+//	    Operands: []SetOperandSpec{
+//	        {Operation: "union", Query: QuerySpec{Fields: []string{"id", "name"}, Where: []ConditionSpec{{Field: "status", Operator: "=", Param: "pending"}}}},
+//	    },
+//	    OrderBy: []OrderBySpec{{Field: "name", Direction: "asc"}},
+//	    Limit:   intPtr(10),
+//	}
+//	compound := cereal.CompoundFromSpec(spec)
+//	results, err := compound.Exec(ctx, params)
+func (c *Cereal[T]) CompoundFromSpec(spec CompoundQuerySpec) *Compound[T] {
+	// Build base query
+	base := c.QueryFromSpec(spec.Base)
+
+	// If no operands, return error
+	if len(spec.Operands) == 0 {
+		return &Compound[T]{
+			instance: c.instance,
+			cereal:   c,
+			err:      fmt.Errorf("compound query requires at least one operand"),
+		}
+	}
+
+	// Build first operand to create compound
+	firstOperand := spec.Operands[0]
+	firstQuery := c.QueryFromSpec(firstOperand.Query)
+
+	var compound *Compound[T]
+	switch strings.ToLower(firstOperand.Operation) {
+	case "union":
+		compound = base.Union(firstQuery)
+	case "union_all":
+		compound = base.UnionAll(firstQuery)
+	case "intersect":
+		compound = base.Intersect(firstQuery)
+	case "intersect_all":
+		compound = base.IntersectAll(firstQuery)
+	case "except":
+		compound = base.Except(firstQuery)
+	case "except_all":
+		compound = base.ExceptAll(firstQuery)
+	default:
+		return &Compound[T]{
+			instance: c.instance,
+			cereal:   c,
+			err:      fmt.Errorf("invalid set operation %q, must be one of: union, union_all, intersect, intersect_all, except, except_all", firstOperand.Operation),
+		}
+	}
+
+	// Add remaining operands
+	for i := 1; i < len(spec.Operands); i++ {
+		operand := spec.Operands[i]
+		query := c.QueryFromSpec(operand.Query)
+
+		switch strings.ToLower(operand.Operation) {
+		case "union":
+			compound = compound.Union(query)
+		case "union_all":
+			compound = compound.UnionAll(query)
+		case "intersect":
+			compound = compound.Intersect(query)
+		case "intersect_all":
+			compound = compound.IntersectAll(query)
+		case "except":
+			compound = compound.Except(query)
+		case "except_all":
+			compound = compound.ExceptAll(query)
+		default:
+			return &Compound[T]{
+				instance: c.instance,
+				cereal:   c,
+				err:      fmt.Errorf("invalid set operation %q at index %d", operand.Operation, i),
+			}
+		}
+	}
+
+	// Add ORDER BY clauses
+	for _, orderBy := range spec.OrderBy {
+		compound = compound.OrderBy(orderBy.Field, orderBy.Direction)
+	}
+
+	// Add LIMIT if specified
+	if spec.Limit != nil {
+		compound = compound.Limit(*spec.Limit)
+	}
+
+	// Add OFFSET if specified
+	if spec.Offset != nil {
+		compound = compound.Offset(*spec.Offset)
+	}
+
+	return compound
 }
