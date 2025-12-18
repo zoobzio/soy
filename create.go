@@ -202,7 +202,7 @@ func (cb *Create[T]) exec(ctx context.Context, execer sqlx.ExtContext, record *T
 		)
 		return nil, fmt.Errorf("INSERT failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// Scan returned row into a new record
 	if !rows.Next() {

@@ -319,7 +319,7 @@ func (ub *Update[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 		)
 		return nil, fmt.Errorf("UPDATE failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// Check for exactly one row
 	if !rows.Next() {

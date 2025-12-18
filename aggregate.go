@@ -125,7 +125,7 @@ func (ab *aggregateBuilder[T]) exec(ctx context.Context, execer sqlx.ExtContext,
 		)
 		return 0, fmt.Errorf("%s query failed: %w", ab.funcName, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// Scan the result
 	if !rows.Next() {

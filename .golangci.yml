@@ -1,3 +1,10 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
 run:
   timeout: 5m
   tests: true
@@ -16,7 +23,6 @@ linters:
     - ineffassign  # Detect ineffectual assignments
     - staticcheck  # Advanced static analysis
     - unused       # Unused code detection
-    - typecheck    # Type checking
 
     # Error handling
     - errcheck     # Unchecked errors
@@ -31,13 +37,41 @@ linters:
     - goconst      # Repeated strings as constants
     - godot        # Comment sentences
     - godox        # TODO/FIXME comments
-    - gofmt        # Formatting
-    - goimports    # Import organization
     - misspell     # Spelling mistakes
     - nakedret     # Naked returns
     - prealloc     # Slice capacity hints
     - predeclared  # Shadowing predeclared identifiers
     - copyloopvar  # Loop variable capture (replacement for deprecated exportloopref)
+
+  exclusions:
+    rules:
+      # Allow TODO comments in development
+      - linters:
+          - godox
+        text: "TODO|FIXME|BUG"
+
+      # sqlclosecheck: defer rows.Close() after error check is correct pattern
+      - linters:
+          - sqlclosecheck
+        text: "Rows/Stmt/NamedStmt was not closed"
+
+      # Test files can have longer functions, duplication, and unchecked errors
+      - path: '(.+)_test\.go'
+        linters:
+          - funlen
+          - goconst
+          - dupl
+          - govet
+          - errcheck
+          - gosec
+
+      # Testing package has intentional patterns
+      - path: 'testing/'
+        linters:
+          - errcheck
+          - goconst
+          - dupl
+          - gosec
 
 linters-settings:
   gosec:
@@ -61,6 +95,8 @@ linters-settings:
       - (io.Closer).Close
       - (*database/sql.Rows).Close
       - (*github.com/jmoiron/sqlx.Rows).Close
+      - (*database/sql.Tx).Rollback
+      - (*github.com/jmoiron/sqlx.Tx).Rollback
 
   gocritic:
     enabled-checks:
@@ -145,8 +181,6 @@ linters-settings:
       - name: var-naming
 
   dupl:
-    # Set to 300 to allow intentional duplication in QueryFromSpec/SelectFromSpec
-    # which have similar structure but operate on different types with type-safe chaining
     threshold: 300
 
   goconst:
@@ -155,34 +189,3 @@ linters-settings:
 
   misspell:
     locale: US
-
-issues:
-  exclude-dirs-use-default: false
-  exclude-rules:
-    # Allow TODO comments in development
-    - linters:
-        - godox
-      text: "TODO|FIXME|BUG"
-
-    # sqlclosecheck: defer rows.Close() after error check is correct pattern
-    - linters:
-        - sqlclosecheck
-      text: "Rows/Stmt/NamedStmt was not closed"
-
-    # Test files can have longer functions and different struct ordering
-    - path: _test\.go
-      linters:
-        - funlen
-        - goconst
-        - dupl
-        - govet
-        - errcheck
-
-  # Maximum issues count per one linter
-  max-issues-per-linter: 0
-
-  # Maximum count of issues with same text
-  max-same-issues: 0
-
-  # Show all issues
-  new: false

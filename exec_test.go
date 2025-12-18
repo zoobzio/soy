@@ -79,7 +79,8 @@ func (tdb *execTestDB) cleanup(t *testing.T) {
 // createExecTestTable creates the test table.
 func createExecTestTable(t *testing.T, db *sqlx.DB) {
 	t.Helper()
-	_, err := db.Exec(`
+	ctx := context.Background()
+	_, err := db.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS exec_test_users (
 			id SERIAL PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
@@ -95,7 +96,8 @@ func createExecTestTable(t *testing.T, db *sqlx.DB) {
 // truncateExecTestTable clears the test table.
 func truncateExecTestTable(t *testing.T, db *sqlx.DB) {
 	t.Helper()
-	_, err := db.Exec(`TRUNCATE TABLE exec_test_users RESTART IDENTITY`)
+	ctx := context.Background()
+	_, err := db.ExecContext(ctx, `TRUNCATE TABLE exec_test_users RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("failed to truncate table: %v", err)
 	}

@@ -38,7 +38,7 @@ func execMultipleRows[T any](
 		)
 		return nil, fmt.Errorf("%s query failed: %w", operation, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []*T
 	for rows.Next() {
