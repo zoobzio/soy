@@ -73,7 +73,7 @@ linters:
           - dupl
           - gosec
 
-linters-settings:
+settings:
   gosec:
     severity: medium
     confidence: medium
