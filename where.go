@@ -123,18 +123,79 @@ func (w *whereBuilder) addWhereNotNull(field string) (*astql.Builder, error) {
 	return w.builder.Where(condition), nil
 }
 
+// addWhereBetween adds a WHERE field BETWEEN low AND high condition.
+func (w *whereBuilder) addWhereBetween(field, lowParam, highParam string) (*astql.Builder, error) {
+	f, err := w.instance.TryF(field)
+	if err != nil {
+		return w.builder, fmt.Errorf("invalid field %q: %w", field, err)
+	}
+
+	lowP, err := w.instance.TryP(lowParam)
+	if err != nil {
+		return w.builder, fmt.Errorf("invalid low param %q: %w", lowParam, err)
+	}
+
+	highP, err := w.instance.TryP(highParam)
+	if err != nil {
+		return w.builder, fmt.Errorf("invalid high param %q: %w", highParam, err)
+	}
+
+	return w.builder.Where(astql.Between(f, lowP, highP)), nil
+}
+
+// addWhereNotBetween adds a WHERE field NOT BETWEEN low AND high condition.
+func (w *whereBuilder) addWhereNotBetween(field, lowParam, highParam string) (*astql.Builder, error) {
+	f, err := w.instance.TryF(field)
+	if err != nil {
+		return w.builder, fmt.Errorf("invalid field %q: %w", field, err)
+	}
+
+	lowP, err := w.instance.TryP(lowParam)
+	if err != nil {
+		return w.builder, fmt.Errorf("invalid low param %q: %w", lowParam, err)
+	}
+
+	highP, err := w.instance.TryP(highParam)
+	if err != nil {
+		return w.builder, fmt.Errorf("invalid high param %q: %w", highParam, err)
+	}
+
+	return w.builder.Where(astql.NotBetween(f, lowP, highP)), nil
+}
+
 // buildCondition converts a Condition to an ASTQL condition.
 func (w *whereBuilder) buildCondition(cond Condition) (astql.ConditionItem, error) {
-	f, err := w.instance.TryF(cond.field)
+	return buildConditionWithInstance(w.instance, cond)
+}
+
+// buildConditionWithInstance is a shared helper that converts a Condition to an ASTQL condition.
+// This is extracted to avoid code duplication across Select, Query, Update, Delete builders.
+func buildConditionWithInstance(instance *astql.ASTQL, cond Condition) (astql.ConditionItem, error) {
+	f, err := instance.TryF(cond.field)
 	if err != nil {
 		return nil, fmt.Errorf("invalid field %q: %w", cond.field, err)
 	}
 
 	if cond.isNull {
 		if cond.operator == opIsNull {
-			return w.instance.TryNull(f)
+			return instance.TryNull(f)
 		}
-		return w.instance.TryNotNull(f)
+		return instance.TryNotNull(f)
+	}
+
+	if cond.isBetween {
+		lowP, err := instance.TryP(cond.lowParam)
+		if err != nil {
+			return nil, fmt.Errorf("invalid low param %q: %w", cond.lowParam, err)
+		}
+		highP, err := instance.TryP(cond.highParam)
+		if err != nil {
+			return nil, fmt.Errorf("invalid high param %q: %w", cond.highParam, err)
+		}
+		if cond.operator == opBetween {
+			return astql.Between(f, lowP, highP), nil
+		}
+		return astql.NotBetween(f, lowP, highP), nil
 	}
 
 	astqlOp, err := validateOperator(cond.operator)
@@ -142,16 +203,45 @@ func (w *whereBuilder) buildCondition(cond Condition) (astql.ConditionItem, erro
 		return nil, err
 	}
 
-	p, err := w.instance.TryP(cond.param)
+	p, err := instance.TryP(cond.param)
 	if err != nil {
 		return nil, fmt.Errorf("invalid param %q: %w", cond.param, err)
 	}
 
-	return w.instance.TryC(f, astqlOp, p)
+	return instance.TryC(f, astqlOp, p)
+}
+
+// buildCaseWhenCondition builds the condition for a CASE WHEN clause.
+// This is extracted to avoid code duplication across SelectCaseBuilder and QueryCaseBuilder.
+// The caller is responsible for resolving the result param.
+func buildCaseWhenCondition(instance *astql.ASTQL, field, operator, param string) (astql.ConditionItem, error) {
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := instance.TryF(field)
+	if err != nil {
+		return nil, fmt.Errorf("invalid field %q: %w", field, err)
+	}
+
+	p, err := instance.TryP(param)
+	if err != nil {
+		return nil, fmt.Errorf("invalid param %q: %w", param, err)
+	}
+
+	condition, err := instance.TryC(f, astqlOp, p)
+	if err != nil {
+		return nil, fmt.Errorf("invalid condition: %w", err)
+	}
+
+	return condition, nil
 }
 
 // Operator constants to avoid duplication.
 const (
-	opIsNull    = "IS NULL"
-	opIsNotNull = "IS NOT NULL"
+	opIsNull     = "IS NULL"
+	opIsNotNull  = "IS NOT NULL"
+	opBetween    = "BETWEEN"
+	opNotBetween = "NOT BETWEEN"
 )

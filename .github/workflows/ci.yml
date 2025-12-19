@@ -95,11 +95,13 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
-    - name: Install golangci-lint
-      run: make install-tools
-
-    - name: Run linters
-      run: make lint
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v7
+      with:
+        version: v2.7.2
+        args: --config=.golangci.yml --timeout=5m
+        skip-cache: false
+        skip-save-cache: false
 
     - name: Generate coverage report
       run: make coverage

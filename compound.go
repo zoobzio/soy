@@ -164,9 +164,53 @@ func (cb *Compound[T]) Limit(limit int) *Compound[T] {
 	return cb
 }
 
+// LimitParam sets the LIMIT clause to a parameterized value.
+// Useful for API pagination where limit comes from request parameters.
+//
+// Example:
+//
+//	.LimitParam("page_size")
+//	// params: map[string]any{"page_size": 10}
+func (cb *Compound[T]) LimitParam(param string) *Compound[T] {
+	if cb.err != nil {
+		return cb
+	}
+
+	p, err := cb.instance.TryP(param)
+	if err != nil {
+		cb.err = fmt.Errorf("invalid limit param %q: %w", param, err)
+		return cb
+	}
+
+	cb.builder = cb.builder.LimitParam(p)
+	return cb
+}
+
 // Offset adds an OFFSET clause to the compound query.
 func (cb *Compound[T]) Offset(offset int) *Compound[T] {
 	cb.builder = cb.builder.Offset(offset)
+	return cb
+}
+
+// OffsetParam sets the OFFSET clause to a parameterized value.
+// Useful for API pagination where offset comes from request parameters.
+//
+// Example:
+//
+//	.OffsetParam("page_offset")
+//	// params: map[string]any{"page_offset": 20}
+func (cb *Compound[T]) OffsetParam(param string) *Compound[T] {
+	if cb.err != nil {
+		return cb
+	}
+
+	p, err := cb.instance.TryP(param)
+	if err != nil {
+		cb.err = fmt.Errorf("invalid offset param %q: %w", param, err)
+		return cb
+	}
+
+	cb.builder = cb.builder.OffsetParam(p)
 	return cb
 }
 
@@ -176,7 +220,7 @@ func (cb *Compound[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("compound query has errors: %w", cb.err)
 	}
 
-	result, err := cb.builder.Render()
+	result, err := cb.builder.Render(cb.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render compound query: %w", err)
 	}
@@ -208,7 +252,7 @@ func (cb *Compound[T]) exec(ctx context.Context, execer sqlx.ExtContext, params 
 		return nil, fmt.Errorf("compound query has errors: %w", cb.err)
 	}
 
-	result, err := cb.builder.Render()
+	result, err := cb.builder.Render(cb.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render compound query: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -24,7 +25,7 @@ func TestDelete_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -151,7 +152,7 @@ func TestDelete_SafetyChecks(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -192,7 +193,7 @@ func TestDelete_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -217,7 +218,7 @@ func TestDelete_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -263,7 +264,7 @@ func TestDelete_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -290,7 +291,7 @@ func TestDelete_BatchOperations(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -354,7 +355,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users")
+	cereal, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

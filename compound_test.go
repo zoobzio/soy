@@ -5,6 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -32,7 +33,7 @@ func TestCompoundUnion(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestCompoundIntersect(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -143,7 +144,7 @@ func TestCompoundExcept(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -192,7 +193,7 @@ func TestCompoundModifiers(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -280,7 +281,7 @@ func TestCompoundChaining(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -346,7 +347,7 @@ func TestCompoundErrors(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -381,7 +382,7 @@ func TestCompoundParams(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -443,7 +444,7 @@ func TestCompoundChainingAllOperations(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -549,7 +550,7 @@ func TestCompoundErrorPropagation(t *testing.T) {
 		)
 	`)
 
-	cereal, err := New[compoundTestUser](db, "users")
+	cereal, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

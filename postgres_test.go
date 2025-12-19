@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -23,7 +24,7 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -111,7 +112,7 @@ func TestSelect_OrderByNulls(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -162,7 +163,7 @@ func TestQuery_Distinct(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -190,7 +191,7 @@ func TestQuery_DistinctOn(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -260,7 +261,7 @@ func TestSelect_DistinctOn(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -297,7 +298,7 @@ func TestQuery_RowLocking(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -373,7 +374,7 @@ func TestSelect_RowLocking(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	c, err := New[pgTestUser](db, "users")
+	c, err := New[pgTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

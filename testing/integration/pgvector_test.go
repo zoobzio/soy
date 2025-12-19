@@ -9,6 +9,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+	astqlpg "github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/cereal"
 )
 
@@ -91,7 +92,7 @@ func TestPgvector_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createVectorTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestVectorWithPgvector](tdb.db, "test_vectors")
+	c, err := cereal.New[TestVectorWithPgvector](tdb.db, "test_vectors", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

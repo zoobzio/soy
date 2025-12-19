@@ -112,7 +112,7 @@ func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, reco
 	}
 
 	// Render the query once
-	result, err := cb.builder.Render()
+	result, err := cb.builder.Render(cb.cereal.renderer())
 	if err != nil {
 		return 0, fmt.Errorf("failed to render INSERT query: %w", err)
 	}
@@ -175,7 +175,7 @@ func (cb *Create[T]) exec(ctx context.Context, execer sqlx.ExtContext, record *T
 	}
 
 	// Render the query
-	result, err := cb.builder.Render()
+	result, err := cb.builder.Render(cb.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render INSERT query: %w", err)
 	}
@@ -249,7 +249,7 @@ func (cb *Create[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("create  has errors: %w", cb.err)
 	}
 
-	result, err := cb.builder.Render()
+	result, err := cb.builder.Render(cb.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render INSERT query: %w", err)
 	}

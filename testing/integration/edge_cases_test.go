@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/cereal"
 )
 
@@ -12,7 +13,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users")
+	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -188,7 +189,7 @@ func TestConstraintViolations_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users")
+	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

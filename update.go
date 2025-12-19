@@ -198,31 +198,79 @@ func (ub *Update[T]) WhereNotNull(field string) *Update[T] {
 	return ub
 }
 
+// WhereBetween adds a WHERE field BETWEEN low AND high condition.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereBetween("age", "min_age", "max_age")
+//	// params: map[string]any{"min_age": 18, "max_age": 65}
+func (ub *Update[T]) WhereBetween(field, lowParam, highParam string) *Update[T] {
+	if ub.err != nil {
+		return ub
+	}
+
+	f, err := ub.instance.TryF(field)
+	if err != nil {
+		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return ub
+	}
+
+	lowP, err := ub.instance.TryP(lowParam)
+	if err != nil {
+		ub.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return ub
+	}
+
+	highP, err := ub.instance.TryP(highParam)
+	if err != nil {
+		ub.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return ub
+	}
+
+	ub.builder = ub.builder.Where(astql.Between(f, lowP, highP))
+	ub.hasWhere = true
+	return ub
+}
+
+// WhereNotBetween adds a WHERE field NOT BETWEEN low AND high condition.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereNotBetween("age", "min_age", "max_age")
+//	// params: map[string]any{"min_age": 18, "max_age": 65}
+func (ub *Update[T]) WhereNotBetween(field, lowParam, highParam string) *Update[T] {
+	if ub.err != nil {
+		return ub
+	}
+
+	f, err := ub.instance.TryF(field)
+	if err != nil {
+		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return ub
+	}
+
+	lowP, err := ub.instance.TryP(lowParam)
+	if err != nil {
+		ub.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return ub
+	}
+
+	highP, err := ub.instance.TryP(highParam)
+	if err != nil {
+		ub.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return ub
+	}
+
+	ub.builder = ub.builder.Where(astql.NotBetween(f, lowP, highP))
+	ub.hasWhere = true
+	return ub
+}
+
 // buildCondition converts a Condition to an ASTQL condition.
 func (ub *Update[T]) buildCondition(cond Condition) (astql.ConditionItem, error) {
-	f, err := ub.instance.TryF(cond.field)
-	if err != nil {
-		return nil, fmt.Errorf("invalid field %q: %w", cond.field, err)
-	}
-
-	if cond.isNull {
-		if cond.operator == opIsNull {
-			return ub.instance.TryNull(f)
-		}
-		return ub.instance.TryNotNull(f)
-	}
-
-	astqlOp, err := validateOperator(cond.operator)
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := ub.instance.TryP(cond.param)
-	if err != nil {
-		return nil, fmt.Errorf("invalid param %q: %w", cond.param, err)
-	}
-
-	return ub.instance.TryC(f, astqlOp, p)
+	return buildConditionWithInstance(ub.instance, cond)
 }
 
 // Exec executes the UPDATE query with values from the provided params map.
@@ -276,7 +324,7 @@ func (ub *Update[T]) ExecBatchTx(ctx context.Context, tx *sqlx.Tx, batchParams [
 
 // execBatch is the internal batch execution method.
 func (ub *Update[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, batchParams []map[string]any) (int64, error) {
-	return executeBatch(ctx, execer, batchParams, ub.builder, ub.cereal.getTableName(), "UPDATE", ub.hasWhere, ub.err)
+	return executeBatch(ctx, execer, batchParams, ub.builder, ub.cereal.renderer(), ub.cereal.getTableName(), "UPDATE", ub.hasWhere, ub.err)
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.
@@ -292,7 +340,7 @@ func (ub *Update[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 	}
 
 	// Render the query
-	result, err := ub.builder.Render()
+	result, err := ub.builder.Render(ub.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render UPDATE query: %w", err)
 	}
@@ -379,7 +427,7 @@ func (ub *Update[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("update  has errors: %w", ub.err)
 	}
 
-	result, err := ub.builder.Render()
+	result, err := ub.builder.Render(ub.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render UPDATE query: %w", err)
 	}

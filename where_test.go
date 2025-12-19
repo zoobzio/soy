@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/astql"
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -23,7 +24,7 @@ func TestWhereBuilder_AddWhere(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestWhereBuilder_AddWhere(t *testing.T) {
 		t.Fatal("addWhere() returned nil builder")
 	}
 
-	result, err := newBuilder.Render()
+	result, err := newBuilder.Render(postgres.New())
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
@@ -62,7 +63,7 @@ func TestWhereBuilder_AddWhere_InvalidField(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -84,7 +85,7 @@ func TestWhereBuilder_AddWhere_InvalidOperator(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestWhereBuilder_AddWhereAnd(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestWhereBuilder_AddWhereAnd(t *testing.T) {
 		t.Errorf("addWhereAnd() error = %v", err)
 	}
 
-	result, err := newBuilder.Render()
+	result, err := newBuilder.Render(postgres.New())
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
@@ -142,7 +143,7 @@ func TestWhereBuilder_AddWhereAnd_Empty(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -168,7 +169,7 @@ func TestWhereBuilder_AddWhereOr(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -188,7 +189,7 @@ func TestWhereBuilder_AddWhereOr(t *testing.T) {
 		t.Errorf("addWhereOr() error = %v", err)
 	}
 
-	result, err := newBuilder.Render()
+	result, err := newBuilder.Render(postgres.New())
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
@@ -204,7 +205,7 @@ func TestWhereBuilder_AddWhereNull(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestWhereBuilder_AddWhereNull(t *testing.T) {
 		t.Errorf("addWhereNull() error = %v", err)
 	}
 
-	result, err := newBuilder.Render()
+	result, err := newBuilder.Render(postgres.New())
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
@@ -235,7 +236,7 @@ func TestWhereBuilder_AddWhereNull_InvalidField(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -257,7 +258,7 @@ func TestWhereBuilder_AddWhereNotNull(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -272,7 +273,7 @@ func TestWhereBuilder_AddWhereNotNull(t *testing.T) {
 		t.Errorf("addWhereNotNull() error = %v", err)
 	}
 
-	result, err := newBuilder.Render()
+	result, err := newBuilder.Render(postgres.New())
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
@@ -288,7 +289,7 @@ func TestWhereBuilder_BuildCondition(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users")
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -363,4 +364,201 @@ func TestWhereBuilder_OperatorConstants(t *testing.T) {
 	if opIsNotNull != "IS NOT NULL" {
 		t.Errorf("opIsNotNull = %q, want %q", opIsNotNull, "IS NOT NULL")
 	}
+
+	if opBetween != "BETWEEN" {
+		t.Errorf("opBetween = %q, want %q", opBetween, "BETWEEN")
+	}
+
+	if opNotBetween != "NOT BETWEEN" {
+		t.Errorf("opNotBetween = %q, want %q", opNotBetween, "NOT BETWEEN")
+	}
+}
+
+func TestWhereBuilder_AddWhereBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	tbl, _ := cereal.instance.TryT("users")
+	builder := astql.Select(tbl)
+
+	wb := newWhereBuilder(cereal.instance, builder)
+	newBuilder, err := wb.addWhereBetween("age", "min_age", "max_age")
+
+	if err != nil {
+		t.Errorf("addWhereBetween() error = %v", err)
+	}
+
+	result, err := newBuilder.Render(postgres.New())
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	if !strings.Contains(result.SQL, "BETWEEN") {
+		t.Error("SQL missing BETWEEN clause")
+	}
+
+	if !strings.Contains(result.SQL, ":min_age") {
+		t.Error("SQL missing min_age param")
+	}
+
+	if !strings.Contains(result.SQL, ":max_age") {
+		t.Error("SQL missing max_age param")
+	}
+
+	t.Logf("Generated SQL: %s", result.SQL)
+}
+
+func TestWhereBuilder_AddWhereBetween_InvalidField(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	tbl, _ := cereal.instance.TryT("users")
+	builder := astql.Select(tbl)
+
+	wb := newWhereBuilder(cereal.instance, builder)
+	_, err = wb.addWhereBetween("nonexistent_field", "min", "max")
+
+	if err == nil {
+		t.Error("addWhereBetween() should error with invalid field")
+	}
+}
+
+func TestWhereBuilder_AddWhereNotBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	tbl, _ := cereal.instance.TryT("users")
+	builder := astql.Select(tbl)
+
+	wb := newWhereBuilder(cereal.instance, builder)
+	newBuilder, err := wb.addWhereNotBetween("age", "min_age", "max_age")
+
+	if err != nil {
+		t.Errorf("addWhereNotBetween() error = %v", err)
+	}
+
+	result, err := newBuilder.Render(postgres.New())
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	if !strings.Contains(result.SQL, "NOT BETWEEN") {
+		t.Error("SQL missing NOT BETWEEN clause")
+	}
+
+	t.Logf("Generated SQL: %s", result.SQL)
+}
+
+func TestWhereBuilder_BuildCondition_Between(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	tbl, _ := cereal.instance.TryT("users")
+	builder := astql.Select(tbl)
+	wb := newWhereBuilder(cereal.instance, builder)
+
+	t.Run("BETWEEN condition", func(t *testing.T) {
+		cond := Between("age", "min_age", "max_age")
+		condItem, err := wb.buildCondition(cond)
+
+		if err != nil {
+			t.Errorf("buildCondition() error = %v", err)
+		}
+
+		if condItem == nil {
+			t.Fatal("buildCondition() returned nil")
+		}
+	})
+
+	t.Run("NOT BETWEEN condition", func(t *testing.T) {
+		cond := NotBetween("age", "min_age", "max_age")
+		condItem, err := wb.buildCondition(cond)
+
+		if err != nil {
+			t.Errorf("buildCondition() error = %v", err)
+		}
+
+		if condItem == nil {
+			t.Fatal("buildCondition() returned nil")
+		}
+	})
+
+	t.Run("BETWEEN with invalid field", func(t *testing.T) {
+		cond := Between("nonexistent_field", "min", "max")
+		_, err := wb.buildCondition(cond)
+
+		if err == nil {
+			t.Error("buildCondition() should error with invalid field")
+		}
+	})
+}
+
+func TestConditionHelpers_Between(t *testing.T) {
+	t.Run("Between helper", func(t *testing.T) {
+		cond := Between("age", "min_age", "max_age")
+
+		if cond.field != "age" {
+			t.Errorf("field = %q, want %q", cond.field, "age")
+		}
+		if cond.operator != opBetween {
+			t.Errorf("operator = %q, want %q", cond.operator, opBetween)
+		}
+		if !cond.isBetween {
+			t.Error("isBetween should be true")
+		}
+		if cond.lowParam != "min_age" {
+			t.Errorf("lowParam = %q, want %q", cond.lowParam, "min_age")
+		}
+		if cond.highParam != "max_age" {
+			t.Errorf("highParam = %q, want %q", cond.highParam, "max_age")
+		}
+	})
+
+	t.Run("NotBetween helper", func(t *testing.T) {
+		cond := NotBetween("age", "min_age", "max_age")
+
+		if cond.field != "age" {
+			t.Errorf("field = %q, want %q", cond.field, "age")
+		}
+		if cond.operator != opNotBetween {
+			t.Errorf("operator = %q, want %q", cond.operator, opNotBetween)
+		}
+		if !cond.isBetween {
+			t.Error("isBetween should be true")
+		}
+		if cond.lowParam != "min_age" {
+			t.Errorf("lowParam = %q, want %q", cond.lowParam, "min_age")
+		}
+		if cond.highParam != "max_age" {
+			t.Errorf("highParam = %q, want %q", cond.highParam, "max_age")
+		}
+	})
 }

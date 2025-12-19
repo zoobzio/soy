@@ -10,6 +10,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+	astqlpg "github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -120,7 +121,7 @@ func TestExec_Insert(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -212,7 +213,7 @@ func TestExec_Select(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -283,7 +284,7 @@ func TestExec_Query(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -352,7 +353,7 @@ func TestExec_Update(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -433,7 +434,7 @@ func TestExec_Delete(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -490,7 +491,7 @@ func TestExec_Aggregate(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -536,7 +537,7 @@ func TestExec_Compound(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -625,7 +626,7 @@ func TestExec_Batch(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExecTestTable(t, tdb.db)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users")
+	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

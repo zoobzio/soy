@@ -87,6 +87,49 @@ func (ab *aggregateBuilder[T]) addWhereNotNull(field string) error {
 	return nil
 }
 
+// addWhereBetween adds a WHERE field BETWEEN low AND high condition.
+func (ab *aggregateBuilder[T]) addWhereBetween(field, lowParam, highParam string) error {
+	wb := newWhereBuilder(ab.instance, ab.builder)
+	builder, err := wb.addWhereBetween(field, lowParam, highParam)
+	if err != nil {
+		return err
+	}
+	ab.builder = builder
+	return nil
+}
+
+// addWhereNotBetween adds a WHERE field NOT BETWEEN low AND high condition.
+func (ab *aggregateBuilder[T]) addWhereNotBetween(field, lowParam, highParam string) error {
+	wb := newWhereBuilder(ab.instance, ab.builder)
+	builder, err := wb.addWhereNotBetween(field, lowParam, highParam)
+	if err != nil {
+		return err
+	}
+	ab.builder = builder
+	return nil
+}
+
+// addWhereFields adds a WHERE condition comparing two fields.
+func (ab *aggregateBuilder[T]) addWhereFields(leftField, operator, rightField string) error {
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		return err
+	}
+
+	left, err := ab.instance.TryF(leftField)
+	if err != nil {
+		return fmt.Errorf("invalid left field %q: %w", leftField, err)
+	}
+
+	right, err := ab.instance.TryF(rightField)
+	if err != nil {
+		return fmt.Errorf("invalid right field %q: %w", rightField, err)
+	}
+
+	ab.builder = ab.builder.Where(astql.CF(left, astqlOp, right))
+	return nil
+}
+
 // exec executes the aggregate query and returns the result as float64.
 // Handles both regular execution and transaction execution.
 func (ab *aggregateBuilder[T]) exec(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (float64, error) {
@@ -96,7 +139,7 @@ func (ab *aggregateBuilder[T]) exec(ctx context.Context, execer sqlx.ExtContext,
 	}
 
 	// Render the query
-	result, err := ab.builder.Render()
+	result, err := ab.builder.Render(ab.cereal.renderer())
 	if err != nil {
 		return 0, fmt.Errorf("failed to render %s query: %w", ab.funcName, err)
 	}
@@ -178,7 +221,7 @@ func (ab *aggregateBuilder[T]) render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("%s builder has errors: %w", ab.funcName, ab.err)
 	}
 
-	result, err := ab.builder.Render()
+	result, err := ab.builder.Render(ab.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render %s query: %w", ab.funcName, err)
 	}
@@ -266,6 +309,60 @@ func (ab *Aggregate[T]) WhereNotNull(field string) *Aggregate[T] {
 	}
 
 	if err := ab.agg.addWhereNotNull(field); err != nil {
+		ab.agg.err = err
+	}
+	return ab
+}
+
+// WhereBetween adds a WHERE field BETWEEN low AND high condition.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereBetween("age", "min_age", "max_age")
+//	// params: map[string]any{"min_age": 18, "max_age": 65}
+func (ab *Aggregate[T]) WhereBetween(field, lowParam, highParam string) *Aggregate[T] {
+	if ab.agg.err != nil {
+		return ab
+	}
+
+	if err := ab.agg.addWhereBetween(field, lowParam, highParam); err != nil {
+		ab.agg.err = err
+	}
+	return ab
+}
+
+// WhereNotBetween adds a WHERE field NOT BETWEEN low AND high condition.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereNotBetween("age", "min_age", "max_age")
+//	// params: map[string]any{"min_age": 18, "max_age": 65}
+func (ab *Aggregate[T]) WhereNotBetween(field, lowParam, highParam string) *Aggregate[T] {
+	if ab.agg.err != nil {
+		return ab
+	}
+
+	if err := ab.agg.addWhereNotBetween(field, lowParam, highParam); err != nil {
+		ab.agg.err = err
+	}
+	return ab
+}
+
+// WhereFields adds a WHERE condition comparing two fields.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereFields("created_at", "<", "updated_at")
+//	// WHERE "created_at" < "updated_at"
+func (ab *Aggregate[T]) WhereFields(leftField, operator, rightField string) *Aggregate[T] {
+	if ab.agg.err != nil {
+		return ab
+	}
+
+	if err := ab.agg.addWhereFields(leftField, operator, rightField); err != nil {
 		ab.agg.err = err
 	}
 	return ab

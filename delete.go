@@ -167,31 +167,114 @@ func (db *Delete[T]) WhereNotNull(field string) *Delete[T] {
 	return db
 }
 
+// WhereBetween adds a WHERE field BETWEEN low AND high condition.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereBetween("age", "min_age", "max_age")
+//	// params: map[string]any{"min_age": 18, "max_age": 65}
+func (db *Delete[T]) WhereBetween(field, lowParam, highParam string) *Delete[T] {
+	if db.err != nil {
+		return db
+	}
+
+	f, err := db.instance.TryF(field)
+	if err != nil {
+		db.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return db
+	}
+
+	lowP, err := db.instance.TryP(lowParam)
+	if err != nil {
+		db.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return db
+	}
+
+	highP, err := db.instance.TryP(highParam)
+	if err != nil {
+		db.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return db
+	}
+
+	db.builder = db.builder.Where(astql.Between(f, lowP, highP))
+	db.hasWhere = true
+	return db
+}
+
+// WhereNotBetween adds a WHERE field NOT BETWEEN low AND high condition.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereNotBetween("age", "min_age", "max_age")
+//	// params: map[string]any{"min_age": 18, "max_age": 65}
+func (db *Delete[T]) WhereNotBetween(field, lowParam, highParam string) *Delete[T] {
+	if db.err != nil {
+		return db
+	}
+
+	f, err := db.instance.TryF(field)
+	if err != nil {
+		db.err = fmt.Errorf("invalid field %q: %w", field, err)
+		return db
+	}
+
+	lowP, err := db.instance.TryP(lowParam)
+	if err != nil {
+		db.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return db
+	}
+
+	highP, err := db.instance.TryP(highParam)
+	if err != nil {
+		db.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return db
+	}
+
+	db.builder = db.builder.Where(astql.NotBetween(f, lowP, highP))
+	db.hasWhere = true
+	return db
+}
+
+// WhereFields adds a WHERE condition comparing two fields.
+// Multiple calls are combined with AND.
+//
+// Example:
+//
+//	.WhereFields("created_at", "<", "updated_at")
+//	// WHERE "created_at" < "updated_at"
+func (db *Delete[T]) WhereFields(leftField, operator, rightField string) *Delete[T] {
+	if db.err != nil {
+		return db
+	}
+
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		db.err = err
+		return db
+	}
+
+	left, err := db.instance.TryF(leftField)
+	if err != nil {
+		db.err = fmt.Errorf("invalid left field %q: %w", leftField, err)
+		return db
+	}
+
+	right, err := db.instance.TryF(rightField)
+	if err != nil {
+		db.err = fmt.Errorf("invalid right field %q: %w", rightField, err)
+		return db
+	}
+
+	db.builder = db.builder.Where(astql.CF(left, astqlOp, right))
+	db.hasWhere = true
+	return db
+}
+
 // buildCondition converts a Condition to an ASTQL condition.
 func (db *Delete[T]) buildCondition(cond Condition) (astql.ConditionItem, error) {
-	f, err := db.instance.TryF(cond.field)
-	if err != nil {
-		return nil, fmt.Errorf("invalid field %q: %w", cond.field, err)
-	}
-
-	if cond.isNull {
-		if cond.operator == opIsNull {
-			return db.instance.TryNull(f)
-		}
-		return db.instance.TryNotNull(f)
-	}
-
-	astqlOp, err := validateOperator(cond.operator)
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := db.instance.TryP(cond.param)
-	if err != nil {
-		return nil, fmt.Errorf("invalid param %q: %w", cond.param, err)
-	}
-
-	return db.instance.TryC(f, astqlOp, p)
+	return buildConditionWithInstance(db.instance, cond)
 }
 
 // Exec executes the DELETE query with values from the provided params map.
@@ -238,7 +321,7 @@ func (db *Delete[T]) ExecBatchTx(ctx context.Context, tx *sqlx.Tx, batchParams [
 
 // execBatch is the internal batch execution method.
 func (db *Delete[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, batchParams []map[string]any) (int64, error) {
-	return executeBatch(ctx, execer, batchParams, db.builder, db.cereal.getTableName(), "DELETE", db.hasWhere, db.err)
+	return executeBatch(ctx, execer, batchParams, db.builder, db.cereal.renderer(), db.cereal.getTableName(), "DELETE", db.hasWhere, db.err)
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.
@@ -254,7 +337,7 @@ func (db *Delete[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 	}
 
 	// Render the query
-	result, err := db.builder.Render()
+	result, err := db.builder.Render(db.cereal.renderer())
 	if err != nil {
 		return 0, fmt.Errorf("failed to render DELETE query: %w", err)
 	}
@@ -316,7 +399,7 @@ func (db *Delete[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("delete  has errors: %w", db.err)
 	}
 
-	result, err := db.builder.Render()
+	result, err := db.builder.Render(db.cereal.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render DELETE query: %w", err)
 	}

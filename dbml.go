@@ -10,7 +10,7 @@ import (
 
 // buildDBMLFromStruct creates a DBML project from a struct's Sentinel metadata.
 // This converts struct tags (db, type, constraints, etc.) into a complete DBML schema.
-func buildDBMLFromStruct(metadata sentinel.ModelMetadata, tableName string) (*dbml.Project, error) {
+func buildDBMLFromStruct(metadata sentinel.Metadata, tableName string) (*dbml.Project, error) {
 	project := dbml.NewProject(tableName).
 		WithDatabaseType("PostgreSQL")
 

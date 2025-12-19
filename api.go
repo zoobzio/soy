@@ -86,19 +86,30 @@ import (
 // Cereal provides a type-safe query API for a specific model type.
 // Each instance holds the ASTQL schema and metadata for building validated queries.
 type Cereal[T any] struct {
-	db        *sqlx.DB
-	tableName string
-	metadata  sentinel.ModelMetadata
-	instance  *astql.ASTQL
+	db          *sqlx.DB
+	tableName   string
+	metadata    sentinel.Metadata
+	instance    *astql.ASTQL
+	sqlRenderer astql.Renderer
 }
 
-// New creates a new Cereal instance for type T with the given database connection and table name.
+// New creates a new Cereal instance for type T with the given database connection, table name, and SQL renderer.
 // This function performs type inspection via Sentinel and builds the ASTQL schema for validation.
 // All reflection and schema building happens once at initialization, not on the hot path.
 // If db is nil, the instance can still be used for query building but not execution.
-func New[T any](db *sqlx.DB, tableName string) (*Cereal[T], error) {
+//
+// Available renderers from astql/pkg:
+//   - postgres.New() for PostgreSQL
+//   - mysql.New() for MySQL
+//   - sqlite.New() for SQLite
+//   - mssql.New() for Microsoft SQL Server
+func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Cereal[T], error) {
 	if tableName == "" {
 		return nil, fmt.Errorf("cereal: table name cannot be empty")
+	}
+
+	if renderer == nil {
+		return nil, fmt.Errorf("cereal: renderer cannot be nil")
 	}
 
 	// Register all tags we use
@@ -126,10 +137,11 @@ func New[T any](db *sqlx.DB, tableName string) (*Cereal[T], error) {
 	}
 
 	c := &Cereal[T]{
-		db:        db,
-		tableName: tableName,
-		metadata:  metadata,
-		instance:  instance,
+		db:          db,
+		tableName:   tableName,
+		metadata:    metadata,
+		instance:    instance,
+		sqlRenderer: renderer,
 	}
 
 	return c, nil
@@ -151,8 +163,13 @@ func (c *Cereal[T]) getTableName() string {
 }
 
 // Metadata returns the Sentinel metadata for type T.
-func (c *Cereal[T]) Metadata() sentinel.ModelMetadata {
+func (c *Cereal[T]) Metadata() sentinel.Metadata {
 	return c.metadata
+}
+
+// renderer returns the SQL renderer for query building.
+func (c *Cereal[T]) renderer() astql.Renderer {
+	return c.sqlRenderer
 }
 
 // Instance returns the underlying ASTQL instance for advanced query building.

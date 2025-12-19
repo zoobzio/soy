@@ -17,6 +17,7 @@ func executeBatch(
 	execer sqlx.ExtContext,
 	batchParams []map[string]any,
 	builder *astql.Builder,
+	renderer astql.Renderer,
 	tableName string,
 	operation string,
 	hasWhere bool,
@@ -37,7 +38,7 @@ func executeBatch(
 	}
 
 	// Render the query once
-	result, err := builder.Render()
+	result, err := builder.Render(renderer)
 	if err != nil {
 		return 0, fmt.Errorf("failed to render %s query: %w", operation, err)
 	}

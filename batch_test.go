@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/astql"
+	"github.com/zoobzio/astql/pkg/postgres"
 )
 
 // Test model for batch tests.
@@ -20,7 +21,7 @@ type batchTestUser struct {
 func TestExecuteBatch_RequiresWhere(t *testing.T) {
 	db := &sqlx.DB{}
 
-	cereal, err := New[batchTestUser](db, "users")
+	cereal, err := New[batchTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestExecuteBatch_RequiresWhere(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err = executeBatch(ctx, db, batchParams, builder, "users", "UPDATE", false, nil)
+	_, err = executeBatch(ctx, db, batchParams, builder, postgres.New(), "users", "UPDATE", false, nil)
 
 	if err == nil {
 		t.Error("executeBatch() should error without WHERE clause")
@@ -43,7 +44,7 @@ func TestExecuteBatch_RequiresWhere(t *testing.T) {
 func TestExecuteBatch_EmptyBatch(t *testing.T) {
 	db := &sqlx.DB{}
 
-	cereal, err := New[batchTestUser](db, "users")
+	cereal, err := New[batchTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -54,7 +55,7 @@ func TestExecuteBatch_EmptyBatch(t *testing.T) {
 	var batchParams []map[string]any
 
 	ctx := context.Background()
-	affected, err := executeBatch(ctx, db, batchParams, builder, "users", "UPDATE", true, nil)
+	affected, err := executeBatch(ctx, db, batchParams, builder, postgres.New(), "users", "UPDATE", true, nil)
 
 	if err != nil {
 		t.Errorf("executeBatch() error = %v", err)
@@ -68,7 +69,7 @@ func TestExecuteBatch_EmptyBatch(t *testing.T) {
 func TestExecuteBatch_BuilderError(t *testing.T) {
 	db := &sqlx.DB{}
 
-	cereal, err := New[batchTestUser](db, "users")
+	cereal, err := New[batchTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -83,7 +84,7 @@ func TestExecuteBatch_BuilderError(t *testing.T) {
 	builderErr := sql.ErrNoRows
 
 	ctx := context.Background()
-	_, err = executeBatch(ctx, db, batchParams, builder, "users", "UPDATE", true, builderErr)
+	_, err = executeBatch(ctx, db, batchParams, builder, postgres.New(), "users", "UPDATE", true, builderErr)
 
 	if err == nil {
 		t.Error("executeBatch() should propagate builder error")

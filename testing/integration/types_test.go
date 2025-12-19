@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/cereal"
 )
 
@@ -14,7 +15,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createExtendedTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUserExtended](tdb.db, "test_users_extended")
+	c, err := cereal.New[TestUserExtended](tdb.db, "test_users_extended", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

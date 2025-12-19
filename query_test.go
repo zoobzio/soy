@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -29,7 +30,7 @@ func TestQuery_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -179,7 +180,7 @@ func TestQuery_OrderBy(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -256,7 +257,7 @@ func TestQuery_OrderByExpr(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestDocument](db, "documents")
+	cereal, err := New[queryTestDocument](db, "documents", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -325,7 +326,7 @@ func TestQuery_WhereIn(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -371,7 +372,7 @@ func TestQuery_Pagination(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -434,6 +435,85 @@ func TestQuery_Pagination(t *testing.T) {
 
 		t.Logf("SQL: %s", result.SQL)
 	})
+
+	t.Run("LimitParam only", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("age", ">=", "min_age").
+			LimitParam("page_size").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "LIMIT") {
+			t.Errorf("SQL missing LIMIT: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":page_size") {
+			t.Errorf("SQL missing :page_size param: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("OffsetParam only", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("age", ">=", "min_age").
+			OffsetParam("page_offset").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "OFFSET") {
+			t.Errorf("SQL missing OFFSET: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":page_offset") {
+			t.Errorf("SQL missing :page_offset param: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("LimitParam and OffsetParam (parameterized pagination)", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("age", ">=", "min_age").
+			OrderBy("name", "ASC").
+			LimitParam("page_size").
+			OffsetParam("page_offset").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "LIMIT :page_size") {
+			t.Errorf("SQL missing LIMIT :page_size: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "OFFSET :page_offset") {
+			t.Errorf("SQL missing OFFSET :page_offset: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("Mixed static and parameterized pagination", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("age", ">=", "min_age").
+			Limit(10).
+			OffsetParam("page_offset").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "LIMIT 10") {
+			t.Errorf("SQL missing LIMIT 10: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "OFFSET :page_offset") {
+			t.Errorf("SQL missing OFFSET :page_offset: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
 }
 
 func TestQuery_ComplexQueries(t *testing.T) {
@@ -443,7 +523,7 @@ func TestQuery_ComplexQueries(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -502,7 +582,7 @@ func TestQuery_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -527,7 +607,7 @@ func TestQuery_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -597,7 +677,7 @@ func TestQuery_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -640,7 +720,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -820,7 +900,7 @@ func TestQuery_HavingClauses(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -888,7 +968,7 @@ func TestQuery_WhereNullEdgeCases(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users")
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -937,6 +1017,296 @@ func TestQuery_WhereNullEdgeCases(t *testing.T) {
 		}
 		if !strings.Contains(result.SQL, "IS NOT NULL") {
 			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+	})
+}
+
+func TestQuery_WindowFunctions(t *testing.T) {
+	sentinel.Tag("window")
+	sentinel.Tag("query")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("RowNumber with OrderBy", func(t *testing.T) {
+		result, err := cereal.Query().
+			Fields("id", "name").
+			SelectRowNumber().
+			OrderBy("age", "DESC").
+			As("row_num").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "ROW_NUMBER()") {
+			t.Errorf("SQL missing ROW_NUMBER(): %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "OVER") {
+			t.Errorf("SQL missing OVER: %s", result.SQL)
+		}
+	})
+
+	t.Run("Rank with PartitionBy and OrderBy", func(t *testing.T) {
+		result, err := cereal.Query().
+			Fields("id", "name").
+			SelectRank().
+			PartitionBy("name").
+			OrderBy("age", "DESC").
+			As("rank").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "RANK()") {
+			t.Errorf("SQL missing RANK(): %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "PARTITION BY") {
+			t.Errorf("SQL missing PARTITION BY: %s", result.SQL)
+		}
+	})
+
+	t.Run("DenseRank", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectDenseRank().
+			OrderBy("age", "ASC").
+			As("dense_rank").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "DENSE_RANK()") {
+			t.Errorf("SQL missing DENSE_RANK(): %s", result.SQL)
+		}
+	})
+
+	t.Run("Lag", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectLag("age", "offset_val").
+			OrderBy("id", "ASC").
+			As("prev_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "LAG") {
+			t.Errorf("SQL missing LAG: %s", result.SQL)
+		}
+	})
+
+	t.Run("Lead", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectLead("age", "offset_val").
+			OrderBy("id", "ASC").
+			As("next_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "LEAD") {
+			t.Errorf("SQL missing LEAD: %s", result.SQL)
+		}
+	})
+
+	t.Run("FirstValue", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectFirstValue("age").
+			OrderBy("id", "ASC").
+			As("first_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "FIRST_VALUE") {
+			t.Errorf("SQL missing FIRST_VALUE: %s", result.SQL)
+		}
+	})
+
+	t.Run("LastValue", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectLastValue("age").
+			OrderBy("id", "ASC").
+			As("last_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "LAST_VALUE") {
+			t.Errorf("SQL missing LAST_VALUE: %s", result.SQL)
+		}
+	})
+
+	t.Run("SumOver with PartitionBy", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectSumOver("age").
+			PartitionBy("name").
+			As("running_total").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "SUM") {
+			t.Errorf("SQL missing SUM: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "OVER") {
+			t.Errorf("SQL missing OVER: %s", result.SQL)
+		}
+	})
+
+	t.Run("AvgOver", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectAvgOver("age").
+			PartitionBy("name").
+			As("avg_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "AVG") {
+			t.Errorf("SQL missing AVG: %s", result.SQL)
+		}
+	})
+
+	t.Run("CountOver", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCountOver().
+			PartitionBy("name").
+			As("category_count").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "COUNT(*)") {
+			t.Errorf("SQL missing COUNT(*): %s", result.SQL)
+		}
+	})
+
+	t.Run("MinOver", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectMinOver("age").
+			PartitionBy("name").
+			As("min_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "MIN") {
+			t.Errorf("SQL missing MIN: %s", result.SQL)
+		}
+	})
+
+	t.Run("MaxOver", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectMaxOver("age").
+			PartitionBy("name").
+			As("max_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "MAX") {
+			t.Errorf("SQL missing MAX: %s", result.SQL)
+		}
+	})
+
+	t.Run("Ntile", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectNtile("num_buckets").
+			OrderBy("age", "ASC").
+			As("quartile").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "NTILE") {
+			t.Errorf("SQL missing NTILE: %s", result.SQL)
+		}
+	})
+
+	t.Run("Window with Frame", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectSumOver("age").
+			OrderBy("id", "ASC").
+			Frame("UNBOUNDED PRECEDING", "CURRENT ROW").
+			As("running_sum").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		t.Logf("SQL: %s", result.SQL)
+		if !strings.Contains(result.SQL, "ROWS BETWEEN") {
+			t.Errorf("SQL missing ROWS BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "UNBOUNDED PRECEDING") {
+			t.Errorf("SQL missing UNBOUNDED PRECEDING: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "CURRENT ROW") {
+			t.Errorf("SQL missing CURRENT ROW: %s", result.SQL)
+		}
+	})
+
+	t.Run("Invalid frame bound", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectSumOver("age").
+			Frame("INVALID BOUND", "CURRENT ROW").
+			As("running_sum").
+			End().
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid frame bound")
+		}
+	})
+
+	t.Run("Invalid partition field", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectRowNumber().
+			PartitionBy("invalid_field").
+			As("row_num").
+			End().
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid partition field")
+		}
+	})
+
+	t.Run("Invalid order field", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectRowNumber().
+			OrderBy("invalid_field", "ASC").
+			As("row_num").
+			End().
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid order field")
 		}
 	})
 }

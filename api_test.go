@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -21,7 +22,7 @@ func TestNew_Success(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -46,10 +47,19 @@ func TestNew_Success(t *testing.T) {
 
 func TestNew_EmptyTableName(t *testing.T) {
 	db := &sqlx.DB{}
-	_, err := New[cerealTestUser](db, "")
+	_, err := New[cerealTestUser](db, "", postgres.New())
 
 	if err == nil {
 		t.Error("New() should error with empty table name")
+	}
+}
+
+func TestNew_NilRenderer(t *testing.T) {
+	db := &sqlx.DB{}
+	_, err := New[cerealTestUser](db, "users", nil)
+
+	if err == nil {
+		t.Error("New() should error with nil renderer")
 	}
 }
 
@@ -58,7 +68,7 @@ func TestNew_NilDB(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	cereal, err := New[cerealTestUser](nil, "users")
+	cereal, err := New[cerealTestUser](nil, "users", postgres.New())
 
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -79,7 +89,7 @@ func TestCereal_TableName(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -96,7 +106,7 @@ func TestCereal_Metadata(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -129,7 +139,7 @@ func TestCereal_Instance(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -152,7 +162,7 @@ func TestCereal_Select(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -173,7 +183,7 @@ func TestCereal_Query(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -194,7 +204,7 @@ func TestCereal_Insert(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -225,7 +235,7 @@ func TestCereal_Modify(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -246,7 +256,7 @@ func TestCereal_Remove(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -267,7 +277,7 @@ func TestCereal_Aggregates(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -308,7 +318,7 @@ func TestCereal_Aggregate_InvalidField(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users")
+	cereal, err := New[cerealTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
