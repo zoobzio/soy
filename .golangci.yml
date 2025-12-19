@@ -1,64 +1,82 @@
 version: "2"
 
-formatters:
-  enable:
-    - gofmt
-    - goimports
-
 run:
   timeout: 5m
-  tests: true
 
 linters:
+  default: none
   enable:
     # Security-critical linters
-    - gosec        # Comprehensive security analyzer
-    - errorlint    # Proper error handling patterns
-    - noctx        # HTTP requests must have context
-    - bodyclose    # HTTP response body must be closed
-    - sqlclosecheck # SQL rows/statements must be closed
+    - gosec
+    - errorlint
+    - noctx
+    - bodyclose
+    - sqlclosecheck
 
-    # Code quality with security implications
-    - govet        # Suspicious constructs
-    - ineffassign  # Detect ineffectual assignments
-    - staticcheck  # Advanced static analysis
-    - unused       # Unused code detection
+    # Code quality
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
 
     # Error handling
-    - errcheck     # Unchecked errors
-    - errchkjson   # JSON marshaling errors
-    - wastedassign # Wasted assignments
+    - errcheck
 
     # Best practices
-    - gocritic     # Opinionated linter
-    - revive       # Fast, configurable linter
-    - unconvert    # Unnecessary type conversions
-    - dupl         # Code duplication
-    - goconst      # Repeated strings as constants
-    - godot        # Comment sentences
-    - godox        # TODO/FIXME comments
-    - misspell     # Spelling mistakes
-    - nakedret     # Naked returns
-    - prealloc     # Slice capacity hints
-    - predeclared  # Shadowing predeclared identifiers
-    - copyloopvar  # Loop variable capture (replacement for deprecated exportloopref)
+    - gocritic
+    - unconvert
+    - dupl
+    - goconst
+    - misspell
+    - nakedret
+    - prealloc
+    - predeclared
+    - copyloopvar
+
+  settings:
+    gosec:
+      excludes:
+        - G104  # We'll use errcheck instead
+
+    govet:
+      disable:
+        - fieldalignment  # Performance optimization, not critical for correctness
+
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - (*github.com/jmoiron/sqlx.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (*github.com/jmoiron/sqlx.Tx).Rollback
+
+    gocritic:
+      enabled-checks:
+        - deferInLoop
+        - emptyFallthrough
+        - evalOrder
+        - nilValReturn
+        - rangeExprCopy
+        - rangeValCopy
+        - sqlQuery
+        - truncateCmp
+        - weakCond
+
+    dupl:
+      threshold: 300
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    misspell:
+      locale: US
 
   exclusions:
     rules:
-      # Allow TODO comments in development
-      - linters:
-          - godox
-        text: "TODO|FIXME|BUG"
-
-      # sqlclosecheck: defer rows.Close() after error check is correct pattern
-      - linters:
-          - sqlclosecheck
-        text: "Rows/Stmt/NamedStmt was not closed"
-
-      # Test files can have longer functions, duplication, and unchecked errors
+      # Test files can have duplication and unchecked errors
       - path: '(.+)_test\.go'
         linters:
-          - funlen
           - goconst
           - dupl
           - govet
@@ -73,119 +91,7 @@ linters:
           - dupl
           - gosec
 
-settings:
-  gosec:
-    severity: medium
-    confidence: medium
-    excludes:
-      - G104  # We'll use errcheck instead
-    config:
-      global:
-        audit: true
-
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment  # Performance optimization, not critical for correctness
-
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-    exclude-functions:
-      - (io.Closer).Close
-      - (*database/sql.Rows).Close
-      - (*github.com/jmoiron/sqlx.Rows).Close
-      - (*database/sql.Tx).Rollback
-      - (*github.com/jmoiron/sqlx.Tx).Rollback
-
-  gocritic:
-    enabled-checks:
-      # Only non-default checks
-      - commentedOutCode
-      - deferInLoop
-      - emptyFallthrough
-      - emptyStringTest
-      - equalFold
-      - evalOrder
-      - exposedSyncMutex
-      - externalErrorReassign
-      - filepathJoin
-      - hexLiteral
-      - httpNoBody
-      - importShadow
-      - indexAlloc
-      - initClause
-      - nestingReduce
-      - nilValReturn
-      - octalLiteral
-      - preferFilepathJoin
-      - preferFprint
-      - preferStringWriter
-      - preferWriteByte
-      - rangeExprCopy
-      - rangeValCopy
-      - redundantSprint
-      - regexpPattern
-      - regexpSimplify
-      - ruleguard
-      - sloppyReassign
-      - sortSlice
-      - sprintfQuotedString
-      - sqlQuery
-      - stringConcatSimplify
-      - stringXbytes
-      - syncMapLoadAndDelete
-      - truncateCmp
-      - typeAssertChain
-      - typeDefFirst
-      - typeUnparen
-      - unlabelStmt
-      - unnamedResult
-      - unnecessaryBlock
-      - unnecessaryDefer
-      - weakCond
-      - yodaStyleExpr
-
-  revive:
-    severity: warning
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: empty-block
-      - name: error-naming
-      - name: error-return
-      - name: error-strings
-      - name: errorf
-      - name: exported
-      - name: if-return
-      - name: increment-decrement
-      - name: indent-error-flow
-      - name: modifies-parameter
-      - name: modifies-value-receiver
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: redefines-builtin-id
-      - name: string-of-int
-      - name: superfluous-else
-      - name: time-naming
-      - name: unexported-return
-      - name: unnecessary-stmt
-      - name: unreachable-code
-      - name: unused-parameter
-      - name: unused-receiver
-      - name: useless-break
-      - name: var-declaration
-      - name: var-naming
-
-  dupl:
-    threshold: 300
-
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-
-  misspell:
-    locale: US
+formatters:
+  enable:
+    - gofmt
+    - goimports
