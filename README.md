@@ -9,28 +9,72 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/cereal)](go.mod)
 [![Release](https://img.shields.io/github/v/release/zoobzio/cereal)](https://github.com/zoobzio/cereal/releases)
 
-Type-safe, query-validated ORM for Go with compile-time schema validation.
+Type-safe SQL query builder for Go with schema validation and multi-database support.
 
-Build database queries with full type safety and SQL validation at initialization time, not runtime.
+## The Problem
+
+ORMs in Go typically use string-based field names and runtime reflection:
+
+```go
+db.Where("emial = ?", email).First(&user)  // Typo: "emial" — fails at runtime
+db.Model(&user).Update("status", value)    // Is "status" a valid column?
+```
+
+Field names are validated at runtime, not compile time. Reflection happens on every query. And when you need to support multiple databases, you're back to string interpolation.
+
+## The Solution
+
+Cereal validates your schema at initialization, not runtime:
+
+```go
+import "github.com/zoobzio/astql/pkg/postgres"
+
+type User struct {
+    ID    int64  `db:"id" type:"bigserial primary key"`
+    Email string `db:"email" type:"text unique not null"`
+    Name  string `db:"name" type:"text"`
+}
+
+// Schema validated once at startup
+users, _ := cereal.New[User](db, "users", postgres.New())
+
+// Type-safe queries — "emial" would fail at initialization, not runtime
+user, _ := users.Select().
+    Where("email", "=", "user_email").
+    Exec(ctx, map[string]any{"user_email": "alice@example.com"})
+```
+
+You get:
+
+- **Schema validation** — field names checked against struct tags at initialization
+- **Type-safe results** — queries return `*User` or `[]*User`, not `interface{}`
+- **Zero reflection on hot path** — all introspection happens once at startup
+- **Multi-database support** — same API for PostgreSQL, MySQL, SQLite, SQL Server
 
 ## Features
 
-- **Type-safe queries**: Full compile-time type checking with Go generics
-- **SQL validation**: Queries are validated against your schema at initialization using [ASTQL](https://github.com/zoobzio/astql)
-- **Schema from structs**: Generate DBML schema from struct tags using [Sentinel](https://github.com/zoobzio/sentinel)
-- **Fluent API**: Simple, chainable query builders for SELECT, INSERT, UPDATE, DELETE
-- **Aggregate functions**: Built-in support for COUNT, SUM, AVG, MIN, MAX
-- **Zero reflection on hot path**: All reflection happens once at initialization
-- **Built on sqlx**: Leverages the battle-tested [sqlx](https://github.com/jmoiron/sqlx) library
-- **PostgreSQL support**: Native support for PostgreSQL via pgx driver
+- **Type-safe queries** — full compile-time type checking with Go generics
+- **Schema validation** — queries validated against your schema using [ASTQL](https://github.com/zoobzio/astql)
+- **Schema from structs** — generate DBML schema from struct tags using [Sentinel](https://github.com/zoobzio/sentinel)
+- **Fluent API** — chainable query builders for SELECT, INSERT, UPDATE, DELETE
+- **Aggregate functions** — COUNT, SUM, AVG, MIN, MAX with FILTER clauses
+- **Window functions** — ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, and more
+- **CASE expressions** — fluent API for conditional SQL expressions
+- **Compound queries** — UNION, INTERSECT, EXCEPT for combining result sets
+- **Multi-database** — PostgreSQL, MySQL, SQLite, SQL Server via ASTQL providers
 
-## Installation
+## Use Cases
+
+- [Implement pagination](docs/4.cookbook/1.pagination.md) — LIMIT/OFFSET and cursor patterns
+- [Add vector search](docs/4.cookbook/2.pgvector.md) — pgvector similarity queries
+
+## Install
 
 ```bash
 go get github.com/zoobzio/cereal
 ```
 
-Requirements: Go 1.23.2+
+Requires Go 1.24+.
 
 ## Quick Start
 
@@ -39,8 +83,12 @@ package main
 
 import (
     "context"
+    "fmt"
+    "log"
+
     "github.com/jmoiron/sqlx"
-    _ "github.com/jackc/pgx/v5/stdlib"
+    _ "github.com/lib/pq"
+    "github.com/zoobzio/astql/pkg/postgres"
     "github.com/zoobzio/cereal"
 )
 
@@ -48,497 +96,119 @@ type User struct {
     ID    int64  `db:"id" type:"bigserial primary key"`
     Email string `db:"email" type:"text unique not null"`
     Name  string `db:"name" type:"text"`
+    Age   int    `db:"age" type:"int"`
 }
 
 func main() {
-    // Connect to database
-    db, err := sqlx.Connect("pgx", "postgres://localhost/mydb?sslmode=disable")
-    if err != nil {
-        panic(err)
-    }
+    db, _ := sqlx.Connect("postgres", "postgres://localhost/mydb?sslmode=disable")
     defer db.Close()
 
-    // Create Cereal instance (validates schema at initialization)
-    c, err := cereal.New[User](db, "users")
-    if err != nil {
-        panic(err)
-    }
-
+    // Create instance — schema validated here
+    users, _ := cereal.New[User](db, "users", postgres.New())
     ctx := context.Background()
 
-    // Simple SELECT query - define query structure with parameter names
-    selectQuery := c.Select("id", "email", "name").
-        Where("email", "=", "user_email")
-
-    // Execute with actual values
-    user, err := selectQuery.Exec(ctx, map[string]any{
-        "user_email": "user@example.com",
+    // Insert
+    created, _ := users.Insert().Exec(ctx, &User{
+        Email: "alice@example.com",
+        Name:  "Alice",
+        Age:   30,
     })
-    if err != nil {
-        panic(err)
-    }
+    fmt.Printf("Created: %d\n", created.ID)
 
-    // INSERT query
-    newUser := User{Email: "new@example.com", Name: "New User"}
-    createQuery := c.Create().Values(newUser)
+    // Select one
+    user, _ := users.Select().
+        Where("email", "=", "email_param").
+        Exec(ctx, map[string]any{"email_param": "alice@example.com"})
+    fmt.Printf("Found: %s\n", user.Name)
 
-    err = createQuery.Exec(ctx)
-    if err != nil {
-        panic(err)
-    }
+    // Query many
+    all, _ := users.Query().
+        Where("age", ">=", "min_age").
+        OrderBy("name", "asc").
+        Limit(10).
+        Exec(ctx, map[string]any{"min_age": 18})
+    fmt.Printf("Users: %d\n", len(all))
 
-    // UPDATE query - define structure with parameter placeholders
-    updateQuery := c.Update().
-        Set("name", "new_name").
-        Where("id", "=", "user_id")
+    // Update
+    updated, _ := users.Modify().
+        Set("age", "new_age").
+        Where("id", "=", "user_id").
+        Exec(ctx, map[string]any{"new_age": 31, "user_id": created.ID})
+    fmt.Printf("Updated age: %d\n", updated.Age)
 
-    // Execute with actual values
-    updated, err := updateQuery.Exec(ctx, map[string]any{
-        "new_name": "Updated Name",
-        "user_id":  user.ID,
-    })
-    if err != nil {
-        panic(err)
-    }
-
-    // DELETE query - define structure
-    deleteQuery := c.Delete().
-        Where("id", "=", "user_id")
-
-    // Execute with actual values
-    err = deleteQuery.Exec(ctx, map[string]any{
-        "user_id": updated.ID,
-    })
-    if err != nil {
-        panic(err)
-    }
-
-    // Aggregate queries - define structure
-    countQuery := c.Count().
-        Where("email", "LIKE", "email_pattern")
-
-    // Execute with actual values
-    count, err := countQuery.Exec(ctx, map[string]any{
-        "email_pattern": "%@example.com",
-    })
-    if err != nil {
-        panic(err)
-    }
+    // Aggregate
+    count, _ := users.Count().
+        Where("age", ">=", "min_age").
+        Exec(ctx, map[string]any{"min_age": 18})
+    fmt.Printf("Count: %.0f\n", count)
 }
 ```
 
-## Core Concepts
-
-### Cereal Instance
-
-The `Cereal[T]` type is the main entry point. It holds:
-- Database connection (sqlx)
-- Table name
-- Type metadata (via Sentinel)
-- ASTQL schema for validation
-
-All schema inspection and validation happens once at initialization via `cereal.New[T]()`.
-
-### Query Builders
-
-Cereal provides simple query builders that hide ASTQL complexity:
-
-- **Select**: Build SELECT queries that return `[]T` or single `T`
-- **Create**: Build INSERT queries from struct values
-- **Update**: Build UPDATE queries with SET and WHERE clauses
-- **Delete**: Build DELETE queries with WHERE clauses
-- **Count, Sum, Avg, Min, Max**: Aggregate function builders
-
-### Schema from Structs
-
-Define your schema using struct tags:
-
-```go
-type Product struct {
-    ID          int64     `db:"id" type:"bigserial primary key"`
-    Name        string    `db:"name" type:"text not null"`
-    Price       float64   `db:"price" type:"numeric(10,2) not null"`
-    Stock       int       `db:"stock" type:"integer default 0"`
-    CategoryID  int64     `db:"category_id" type:"bigint references categories(id)"`
-    CreatedAt   time.Time `db:"created_at" type:"timestamp default now()"`
-}
-```
-
-Tags:
-- `db`: Column name
-- `type`: PostgreSQL column type with constraints
-- `constraints`: Additional constraints
-- `default`: Default value
-- `references`: Foreign key reference
-- `index`: Index definition
-- `check`: Check constraint
-
-### DBML Generation
-
-You can generate DBML schema from your structs:
-
-```go
-project, err := cereal.GenerateDBML(metadata, "products")
-```
-
-This allows you to:
-- Document your schema
-- Generate database migrations
-- Visualize table relationships
-
-## Query Examples
-
-### SELECT Queries
-
-```go
-// Select all columns
-query := c.Select("*")
-users, err := query.All(ctx, nil)
-
-// Select specific columns with filtering
-query := c.Select("id", "email").
-    Where("status", "=", "status_value").
-    OrderBy("created_at", "desc").
-    Limit(10)
-
-users, err := query.All(ctx, map[string]any{
-    "status_value": "active",
-})
-
-// Select one record
-query := c.Select("*").
-    Where("id", "=", "user_id")
-
-user, err := query.Exec(ctx, map[string]any{
-    "user_id": 123,
-})
-
-// Complex conditions with AND
-query := c.Select("id", "email", "created_at").
-    WhereAnd(
-        cereal.C("age", ">=", "min_age"),
-        cereal.C("age", "<=", "max_age"),
-        cereal.C("status", "=", "status"),
-    ).
-    OrderBy("created_at", "desc")
-
-users, err := query.All(ctx, map[string]any{
-    "min_age": 18,
-    "max_age": 65,
-    "status":  "active",
-})
-
-// Complex conditions with OR
-query := c.Select("*").
-    WhereOr(
-        cereal.C("status", "=", "active"),
-        cereal.C("status", "=", "pending"),
-    )
-
-users, err := query.All(ctx, nil)
-```
-
-### INSERT Queries
-
-```go
-// Insert single record
-user := User{Email: "test@example.com", Name: "Test"}
-query := c.Create().Values(user)
-
-err := query.Exec(ctx)
-
-// Insert with RETURNING
-user := User{Email: "test@example.com", Name: "Test"}
-query := c.Create().
-    Values(user).
-    Returning("id")
-
-var id int64
-err := query.Scan(ctx, &id)
-
-// Insert multiple records
-users := []User{
-    {Email: "user1@example.com", Name: "User 1"},
-    {Email: "user2@example.com", Name: "User 2"},
-    {Email: "user3@example.com", Name: "User 3"},
-}
-
-for _, user := range users {
-    query := c.Create().Values(user)
-    err := query.Exec(ctx)
-    if err != nil {
-        // handle error
-    }
-}
-```
-
-### UPDATE Queries
-
-```go
-// Update single field
-query := c.Update().
-    Set("status", "new_status").
-    Where("id", "=", "user_id")
-
-updated, err := query.Exec(ctx, map[string]any{
-    "new_status": "inactive",
-    "user_id":    123,
-})
-
-// Update multiple fields
-query := c.Update().
-    Set("status", "new_status").
-    Set("updated_at", "now").
-    Set("name", "new_name").
-    Where("id", "=", "user_id")
-
-updated, err := query.Exec(ctx, map[string]any{
-    "new_status": "active",
-    "now":        time.Now(),
-    "new_name":   "Updated Name",
-    "user_id":    123,
-})
-
-// Update with complex WHERE conditions
-query := c.Update().
-    Set("status", "archived").
-    WhereAnd(
-        cereal.C("last_login", "<", "cutoff_date"),
-        cereal.C("status", "=", "inactive"),
-    )
-
-updated, err := query.Exec(ctx, map[string]any{
-    "cutoff_date": time.Now().AddDate(0, -6, 0),
-})
-
-// Batch update
-query := c.Update().
-    Set("status", "new_status").
-    Where("id", "=", "user_id")
-
-batchParams := []map[string]any{
-    {"new_status": "active", "user_id": 1},
-    {"new_status": "inactive", "user_id": 2},
-    {"new_status": "pending", "user_id": 3},
-}
-
-rowsAffected, err := query.ExecBatch(ctx, batchParams)
-```
-
-### DELETE Queries
-
-```go
-// Delete single record
-query := c.Delete().
-    Where("id", "=", "user_id")
-
-err := query.Exec(ctx, map[string]any{
-    "user_id": 123,
-})
-
-// Delete with complex conditions
-query := c.Delete().
-    Where("status", "=", "status_value")
-
-err := query.Exec(ctx, map[string]any{
-    "status_value": "inactive",
-})
-
-// Delete with AND conditions
-query := c.Delete().
-    WhereAnd(
-        cereal.C("status", "=", "deleted"),
-        cereal.C("updated_at", "<", "cutoff_date"),
-    )
-
-err := query.Exec(ctx, map[string]any{
-    "cutoff_date": time.Now().AddDate(-1, 0, 0),
-})
-
-// Batch delete
-query := c.Delete().
-    Where("id", "=", "user_id")
-
-batchParams := []map[string]any{
-    {"user_id": 1},
-    {"user_id": 2},
-    {"user_id": 3},
-}
-
-rowsAffected, err := query.ExecBatch(ctx, batchParams)
-```
-
-### Aggregate Queries
-
-```go
-// Count all records
-query := c.Count()
-count, err := query.Exec(ctx, nil)
-
-// Count with WHERE
-query := c.Count().
-    Where("status", "=", "status_value")
-
-count, err := query.Exec(ctx, map[string]any{
-    "status_value": "active",
-})
-
-// Sum values
-query := c.Sum("amount").
-    Where("paid", "=", "paid_status")
-
-total, err := query.Exec(ctx, map[string]any{
-    "paid_status": true,
-})
-
-// Average
-query := c.Avg("rating")
-avg, err := query.Exec(ctx, nil)
-
-// Average with conditions
-query := c.Avg("rating").
-    Where("created_at", ">", "start_date")
-
-avg, err := query.Exec(ctx, map[string]any{
-    "start_date": time.Now().AddDate(0, -1, 0),
-})
-
-// Min/Max
-minQuery := c.Min("price")
-min, err := minQuery.Exec(ctx, nil)
-
-maxQuery := c.Max("price").
-    Where("status", "=", "available")
-
-max, err := maxQuery.Exec(ctx, nil)
-```
-
-## Advanced Usage
-
-### Direct ASTQL Access
-
-For complex queries beyond the simple API:
-
-```go
-instance := c.Instance()
-query := astql.Select(instance.T("users")).
-    Fields(instance.F("id"), instance.F("email")).
-    Where(instance.C(instance.F("age"), ">=", instance.P("min_age")))
-
-// Execute with parameters
-result, err := query.Render()
-rows, err := sqlx.NamedQueryContext(ctx, db, result.SQL, map[string]any{"min_age": 18})
-```
-
-### Custom Query Execution
-
-```go
-// Access underlying sqlx.DB
-db := c.execer()
-```
-
-## Observability
-
-Cereal emits structured events via [Capitan](https://github.com/zoobzio/capitan) for logging and monitoring.
-
-### Signals
-
-**QueryStarted** (`db.query.started`)
-- Emitted when a database query begins execution
-- Fields: `table`, `operation`, `sql`
-
-**QueryCompleted** (`db.query.completed`)
-- Emitted when a query completes successfully
-- Fields: `table`, `operation`, `duration_ms`, `rows_affected` or `rows_returned`, `result_value` (for aggregates)
-
-**QueryFailed** (`db.query.failed`)
-- Emitted when a query fails with an error
-- Fields: `table`, `operation`, `duration_ms`, `error`
-
-### Event Fields
-
-- `table` (string): Database table being operated on
-- `operation` (string): Type of operation (SELECT, INSERT, UPDATE, DELETE, COUNT, SUM, AVG, MIN, MAX)
-- `sql` (string): Rendered SQL query string
-- `duration_ms` (int64): Query execution duration in milliseconds
-- `rows_affected` (int64): Number of rows affected (INSERT/UPDATE/DELETE)
-- `rows_returned` (int): Number of rows returned (SELECT)
-- `error` (string): Error message when query fails
-- `field` (string): Field being aggregated (SUM/AVG/MIN/MAX)
-- `result_value` (float64): Result value for aggregates
-
-### Example Integration
+## API Reference
+
+| Function | Purpose |
+|----------|---------|
+| `New[T](db, table, renderer)` | Create instance for type T |
+| `Select()` | Single-record SELECT (returns `*T`) |
+| `Query()` | Multi-record SELECT (returns `[]*T`) |
+| `Insert()` | INSERT with RETURNING |
+| `Modify()` | UPDATE (requires WHERE) |
+| `Remove()` | DELETE (requires WHERE) |
+| `Count()`, `Sum(field)`, `Avg(field)`, `Min(field)`, `Max(field)` | Aggregates |
+| `C(field, op, param)` | Create condition for WhereAnd/WhereOr |
+| `Null(field)`, `NotNull(field)` | NULL conditions |
+| `Between(field, low, high)` | BETWEEN condition |
+
+See [API Reference](docs/5.reference/1.api.md) for complete documentation.
+
+## Providers
+
+Use the appropriate provider for your database:
 
 ```go
 import (
-    "github.com/zoobzio/capitan"
-    "github.com/zoobzio/cereal"
+    "github.com/zoobzio/astql/pkg/postgres"
+    "github.com/zoobzio/astql/pkg/mysql"
+    "github.com/zoobzio/astql/pkg/sqlite"
+    "github.com/zoobzio/astql/pkg/mssql"
 )
 
-// Subscribe to query events
-capitan.Subscribe(cereal.QueryCompleted, func(signal capitan.Signal, fields ...capitan.Field) {
-    // Extract fields
-    var table, operation string
-    var duration int64
-
-    for _, field := range fields {
-        switch field.Key() {
-        case "table":
-            table = field.String()
-        case "operation":
-            operation = field.String()
-        case "duration_ms":
-            duration = field.Int64()
-        }
-    }
-
-    log.Printf("Query %s on %s completed in %dms", operation, table, duration)
-})
+users, _ := cereal.New[User](db, "users", postgres.New())  // PostgreSQL
+users, _ := cereal.New[User](db, "users", mysql.New())     // MySQL
+users, _ := cereal.New[User](db, "users", sqlite.New())    // SQLite
+users, _ := cereal.New[User](db, "users", mssql.New())     // SQL Server
 ```
 
-## Architecture
+Each provider handles dialect differences automatically.
 
-Cereal is built on three core libraries:
+## Documentation
 
-1. **[Sentinel](https://github.com/zoobzio/sentinel)**: Type inspection and metadata extraction
-2. **[ASTQL](https://github.com/zoobzio/astql)**: SQL validation and query building
-3. **[sqlx](https://github.com/jmoiron/sqlx)**: Database operations and scanning
-
-The stack:
-```
-┌──────────────────────┐
-│   Cereal (this)      │  Simple query API
-├──────────────────────┤
-│   ASTQL              │  SQL validation
-├──────────────────────┤
-│   Sentinel           │  Type metadata
-├──────────────────────┤
-│   sqlx               │  Database ops
-└──────────────────────┘
-```
-
-## Performance
-
-- **Zero reflection on hot path**: All type inspection happens once at initialization
-- **Prepared statements**: sqlx handles statement preparation and caching
-- **Efficient scanning**: Direct struct scanning via sqlx
-- **Minimal allocations**: Query builders reuse buffers where possible
+- [Overview](docs/1.overview.md) — what cereal does and why
+- **Learn**
+  - [Quickstart](docs/2.learn/1.quickstart.md) — get started in minutes
+  - [Concepts](docs/2.learn/2.concepts.md) — queries, conditions, builders
+- **Guides**
+  - [Queries](docs/3.guides/1.queries.md) — SELECT with filtering and ordering
+  - [Mutations](docs/3.guides/2.mutations.md) — INSERT, UPDATE, DELETE
+  - [Aggregates](docs/3.guides/3.aggregates.md) — COUNT, SUM, AVG, MIN, MAX
+  - [Specs](docs/3.guides/4.specs.md) — JSON-serializable query definitions
+  - [Compound Queries](docs/3.guides/5.compound.md) — UNION, INTERSECT, EXCEPT
+- **Cookbook**
+  - [Pagination](docs/4.cookbook/1.pagination.md) — LIMIT/OFFSET patterns
+  - [Vector Search](docs/4.cookbook/2.pgvector.md) — pgvector similarity queries
+- **Reference**
+  - [API](docs/5.reference/1.api.md) — complete function documentation
 
 ## Contributing
 
-Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! Please ensure:
 
-```bash
-# Run tests
-make test
+- Tests pass: `make test`
+- Code is formatted: `go fmt ./...`
+- No lint errors: `make lint`
 
-# Run linter
-make lint
-
-# Generate coverage
-make coverage
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](LICENSE) for details.
