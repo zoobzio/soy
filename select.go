@@ -3,7 +3,6 @@ package cereal
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -40,84 +39,8 @@ type Condition struct {
 	highParam string // high value param for BETWEEN
 }
 
-// operatorMap translates string operators to ASTQL operators.
-var operatorMap = map[string]astql.Operator{
-	// Basic comparison operators.
-	"=":  astql.EQ,
-	"!=": astql.NE,
-	">":  astql.GT,
-	">=": astql.GE,
-	"<":  astql.LT,
-	"<=": astql.LE,
-
-	// Pattern matching operators.
-	"LIKE":      astql.LIKE,
-	"NOT LIKE":  astql.NotLike,
-	"ILIKE":     astql.ILIKE,
-	"NOT ILIKE": astql.NotILike,
-
-	// Set membership operators.
-	"IN":     astql.IN,
-	"NOT IN": astql.NotIn,
-
-	// Regex operators (PostgreSQL).
-	"~":   astql.RegexMatch,
-	"~*":  astql.RegexIMatch,
-	"!~":  astql.NotRegexMatch,
-	"!~*": astql.NotRegexIMatch,
-
-	// Array operators (PostgreSQL).
-	"@>": astql.ArrayContains,
-	"<@": astql.ArrayContainedBy,
-	"&&": astql.ArrayOverlap,
-
-	// Vector operators (pgvector).
-	"<->": astql.VectorL2Distance,
-	"<#>": astql.VectorInnerProduct,
-	"<=>": astql.VectorCosineDistance,
-	"<+>": astql.VectorL1Distance,
-}
-
-// directionMap translates string directions to ASTQL directions.
-var directionMap = map[string]astql.Direction{
-	"asc":  astql.ASC,
-	"desc": astql.DESC,
-}
-
-// nullsMap translates string nulls ordering to ASTQL nulls ordering.
-var nullsMap = map[string]astql.NullsOrdering{
-	"first": astql.NullsFirst,
-	"last":  astql.NullsLast,
-}
-
-// validateOperator converts a string operator to ASTQL operator.
-func validateOperator(op string) (astql.Operator, error) {
-	astqlOp, ok := operatorMap[op]
-	if !ok {
-		return "", fmt.Errorf("invalid operator %q, supported: =, !=, >, >=, <, <=, LIKE, NOT LIKE, ILIKE, NOT ILIKE, IN, NOT IN, ~, ~*, !~, !~*, @>, <@, &&, <->, <#>, <=>, <+>", op)
-	}
-	return astqlOp, nil
-}
-
-// validateDirection converts a string direction to ASTQL direction.
-func validateDirection(dir string) (astql.Direction, error) {
-	lower := strings.ToLower(dir)
-	astqlDir, ok := directionMap[lower]
-	if !ok {
-		return "", fmt.Errorf("invalid direction %q, must be 'asc' or 'desc'", dir)
-	}
-	return astqlDir, nil
-}
-
-// validateNulls converts a string nulls ordering to ASTQL nulls ordering.
-func validateNulls(nulls string) (astql.NullsOrdering, error) {
-	lower := strings.ToLower(nulls)
-	astqlNulls, ok := nullsMap[lower]
-	if !ok {
-		return "", fmt.Errorf("invalid nulls ordering %q, must be 'first' or 'last'", nulls)
-	}
-	return astqlNulls, nil
-}
+// Note: operatorMap, directionMap, nullsMap, and validate* functions
+// are defined in builder.go to avoid duplication.
 
 // Fields specifies which fields to select. Field names must exist in the schema.
 // If not called, SELECT * is used by default.
@@ -125,23 +48,7 @@ func (sb *Select[T]) Fields(fields ...string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	if len(fields) == 0 {
-		return sb
-	}
-
-	// Build fields slice using factory
-	fieldSlice := sb.instance.Fields()
-	for _, fieldName := range fields {
-		f, err := sb.instance.TryF(fieldName)
-		if err != nil {
-			sb.err = fmt.Errorf("invalid field %q: %w", fieldName, err)
-			return sb
-		}
-		fieldSlice = append(fieldSlice, f)
-	}
-
-	sb.builder = sb.builder.Fields(fieldSlice...)
+	sb.builder, sb.err = fieldsImpl(sb.instance, sb.builder, fields...)
 	return sb
 }
 
@@ -155,32 +62,7 @@ func (sb *Select[T]) Where(field, operator, param string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlOp, err := validateOperator(operator)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	p, err := sb.instance.TryP(param)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid param %q: %w", param, err)
-		return sb
-	}
-
-	condition, err := sb.instance.TryC(f, astqlOp, p)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid condition: %w", err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(condition)
+	sb.builder, sb.err = whereImpl(sb.instance, sb.builder, field, operator, param)
 	return sb
 }
 
@@ -196,28 +78,7 @@ func (sb *Select[T]) WhereAnd(conditions ...Condition) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	if len(conditions) == 0 {
-		return sb
-	}
-
-	conditionItems := sb.instance.ConditionItems()
-	for _, cond := range conditions {
-		condItem, err := sb.buildCondition(cond)
-		if err != nil {
-			sb.err = err
-			return sb
-		}
-		conditionItems = append(conditionItems, condItem)
-	}
-
-	andGroup, err := sb.instance.TryAnd(conditionItems...)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid AND condition: %w", err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(andGroup)
+	sb.builder, sb.err = whereAndImpl(sb.instance, sb.builder, conditions...)
 	return sb
 }
 
@@ -233,28 +94,7 @@ func (sb *Select[T]) WhereOr(conditions ...Condition) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	if len(conditions) == 0 {
-		return sb
-	}
-
-	conditionItems := sb.instance.ConditionItems()
-	for _, cond := range conditions {
-		condItem, err := sb.buildCondition(cond)
-		if err != nil {
-			sb.err = err
-			return sb
-		}
-		conditionItems = append(conditionItems, condItem)
-	}
-
-	orGroup, err := sb.instance.TryOr(conditionItems...)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid OR condition: %w", err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(orGroup)
+	sb.builder, sb.err = whereOrImpl(sb.instance, sb.builder, conditions...)
 	return sb
 }
 
@@ -263,20 +103,7 @@ func (sb *Select[T]) WhereNull(field string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	condition, err := sb.instance.TryNull(f)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid NULL condition: %w", err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(condition)
+	sb.builder, sb.err = whereNullImpl(sb.instance, sb.builder, field)
 	return sb
 }
 
@@ -285,20 +112,7 @@ func (sb *Select[T]) WhereNotNull(field string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	condition, err := sb.instance.TryNotNull(f)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid NOT NULL condition: %w", err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(condition)
+	sb.builder, sb.err = whereNotNullImpl(sb.instance, sb.builder, field)
 	return sb
 }
 
@@ -313,26 +127,7 @@ func (sb *Select[T]) WhereBetween(field, lowParam, highParam string) *Select[T] 
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	lowP, err := sb.instance.TryP(lowParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
-		return sb
-	}
-
-	highP, err := sb.instance.TryP(highParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(astql.Between(f, lowP, highP))
+	sb.builder, sb.err = whereBetweenImpl(sb.instance, sb.builder, field, lowParam, highParam)
 	return sb
 }
 
@@ -347,26 +142,7 @@ func (sb *Select[T]) WhereNotBetween(field, lowParam, highParam string) *Select[
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	lowP, err := sb.instance.TryP(lowParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
-		return sb
-	}
-
-	highP, err := sb.instance.TryP(highParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(astql.NotBetween(f, lowP, highP))
+	sb.builder, sb.err = whereNotBetweenImpl(sb.instance, sb.builder, field, lowParam, highParam)
 	return sb
 }
 
@@ -381,32 +157,8 @@ func (sb *Select[T]) WhereFields(leftField, operator, rightField string) *Select
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlOp, err := validateOperator(operator)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	left, err := sb.instance.TryF(leftField)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid left field %q: %w", leftField, err)
-		return sb
-	}
-
-	right, err := sb.instance.TryF(rightField)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid right field %q: %w", rightField, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Where(astql.CF(left, astqlOp, right))
+	sb.builder, sb.err = whereFieldsImpl(sb.instance, sb.builder, leftField, operator, rightField)
 	return sb
-}
-
-// buildCondition converts a Condition to an ASTQL condition.
-func (sb *Select[T]) buildCondition(cond Condition) (astql.ConditionItem, error) {
-	return buildConditionWithInstance(sb.instance, cond)
 }
 
 // OrderBy adds an ORDER BY clause.
@@ -415,20 +167,7 @@ func (sb *Select[T]) OrderBy(field string, direction string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlDir, err := validateDirection(direction)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.OrderBy(f, astqlDir)
+	sb.builder, sb.err = orderByImpl(sb.instance, sb.builder, field, direction)
 	return sb
 }
 
@@ -443,26 +182,7 @@ func (sb *Select[T]) OrderByNulls(field, direction, nulls string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlDir, err := validateDirection(direction)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	astqlNulls, err := validateNulls(nulls)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.OrderByNulls(f, astqlDir, astqlNulls)
+	sb.builder, sb.err = orderByNullsImpl(sb.instance, sb.builder, field, direction, nulls)
 	return sb
 }
 
@@ -477,32 +197,7 @@ func (sb *Select[T]) OrderByExpr(field, operator, param, direction string) *Sele
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlDir, err := validateDirection(direction)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	astqlOp, err := validateOperator(operator)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	p, err := sb.instance.TryP(param)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid param %q: %w", param, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.OrderByExpr(f, astqlOp, p, astqlDir)
+	sb.builder, sb.err = orderByExprImpl(sb.instance, sb.builder, field, operator, param, direction)
 	return sb
 }
 
@@ -523,14 +218,7 @@ func (sb *Select[T]) LimitParam(param string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	p, err := sb.instance.TryP(param)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid limit param %q: %w", param, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.LimitParam(p)
+	sb.builder, sb.err = limitParamImpl(sb.instance, sb.builder, param)
 	return sb
 }
 
@@ -551,14 +239,7 @@ func (sb *Select[T]) OffsetParam(param string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	p, err := sb.instance.TryP(param)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid offset param %q: %w", param, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.OffsetParam(p)
+	sb.builder, sb.err = offsetParamImpl(sb.instance, sb.builder, param)
 	return sb
 }
 
@@ -578,22 +259,7 @@ func (sb *Select[T]) DistinctOn(fields ...string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	if len(fields) == 0 {
-		return sb
-	}
-
-	astqlFields := sb.instance.Fields()
-	for _, field := range fields {
-		f, err := sb.instance.TryF(field)
-		if err != nil {
-			sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-			return sb
-		}
-		astqlFields = append(astqlFields, f)
-	}
-
-	sb.builder = sb.builder.DistinctOn(astqlFields...)
+	sb.builder, sb.err = distinctOnImpl(sb.instance, sb.builder, fields...)
 	return sb
 }
 
@@ -607,17 +273,7 @@ func (sb *Select[T]) GroupBy(fields ...string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlFields := sb.instance.Fields()
-	for _, field := range fields {
-		f, err := sb.instance.TryF(field)
-		if err != nil {
-			sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-			return sb
-		}
-		astqlFields = append(astqlFields, f)
-	}
-	sb.builder = sb.builder.GroupBy(astqlFields...)
+	sb.builder, sb.err = groupByImpl(sb.instance, sb.builder, fields...)
 	return sb
 }
 
@@ -631,32 +287,7 @@ func (sb *Select[T]) Having(field, operator, param string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlOp, err := validateOperator(operator)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	p, err := sb.instance.TryP(param)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid param %q: %w", param, err)
-		return sb
-	}
-
-	condition, err := sb.instance.TryC(f, astqlOp, p)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid condition: %w", err)
-		return sb
-	}
-
-	sb.builder = sb.builder.Having(condition)
+	sb.builder, sb.err = havingImpl(sb.instance, sb.builder, field, operator, param)
 	return sb
 }
 
@@ -671,20 +302,7 @@ func (sb *Select[T]) HavingAgg(aggFunc, field, operator, param string) *Select[T
 	if sb.err != nil {
 		return sb
 	}
-
-	astqlOp, err := validateOperator(operator)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	aggCond, err := buildAggregateCondition(sb.instance, aggFunc, field, param, astqlOp)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.HavingAgg(aggCond)
+	sb.builder, sb.err = havingAggImpl(sb.instance, sb.builder, aggFunc, field, operator, param)
 	return sb
 }
 
@@ -727,14 +345,7 @@ func (sb *Select[T]) SelectUpper(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Upper(f), alias))
+	sb.builder, sb.err = selectUpperImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -747,14 +358,7 @@ func (sb *Select[T]) SelectLower(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Lower(f), alias))
+	sb.builder, sb.err = selectLowerImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -767,14 +371,7 @@ func (sb *Select[T]) SelectLength(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Length(f), alias))
+	sb.builder, sb.err = selectLengthImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -787,14 +384,7 @@ func (sb *Select[T]) SelectTrim(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Trim(f), alias))
+	sb.builder, sb.err = selectTrimImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -807,14 +397,7 @@ func (sb *Select[T]) SelectLTrim(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.LTrim(f), alias))
+	sb.builder, sb.err = selectLTrimImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -827,14 +410,7 @@ func (sb *Select[T]) SelectRTrim(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.RTrim(f), alias))
+	sb.builder, sb.err = selectRTrimImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -849,14 +425,7 @@ func (sb *Select[T]) SelectAbs(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Abs(f), alias))
+	sb.builder, sb.err = selectAbsImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -869,14 +438,7 @@ func (sb *Select[T]) SelectCeil(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Ceil(f), alias))
+	sb.builder, sb.err = selectCeilImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -889,14 +451,7 @@ func (sb *Select[T]) SelectFloor(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Floor(f), alias))
+	sb.builder, sb.err = selectFloorImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -909,14 +464,7 @@ func (sb *Select[T]) SelectRound(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Round(f), alias))
+	sb.builder, sb.err = selectRoundImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -929,14 +477,7 @@ func (sb *Select[T]) SelectSqrt(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Sqrt(f), alias))
+	sb.builder, sb.err = selectSqrtImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -951,14 +492,7 @@ func (sb *Select[T]) SelectCast(field string, castType CastType, alias string) *
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Cast(f, castType), alias))
+	sb.builder, sb.err = selectCastImpl(sb.instance, sb.builder, field, castType, alias)
 	return sb
 }
 
@@ -1025,14 +559,7 @@ func (sb *Select[T]) SelectCount(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.CountField(f), alias))
+	sb.builder, sb.err = selectCountImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -1045,14 +572,7 @@ func (sb *Select[T]) SelectCountDistinct(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.CountDistinct(f), alias))
+	sb.builder, sb.err = selectCountDistinctImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -1065,14 +585,7 @@ func (sb *Select[T]) SelectSum(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Sum(f), alias))
+	sb.builder, sb.err = selectSumImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -1085,14 +598,7 @@ func (sb *Select[T]) SelectAvg(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Avg(f), alias))
+	sb.builder, sb.err = selectAvgImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -1105,14 +611,7 @@ func (sb *Select[T]) SelectMin(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Min(f), alias))
+	sb.builder, sb.err = selectMinImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -1125,14 +624,7 @@ func (sb *Select[T]) SelectMax(field, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Max(f), alias))
+	sb.builder, sb.err = selectMaxImpl(sb.instance, sb.builder, field, alias)
 	return sb
 }
 
@@ -1149,20 +641,7 @@ func (sb *Select[T]) SelectSumFilter(field, condField, condOp, condParam, alias 
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	filter, err := sb.buildSimpleCondition(condField, condOp, condParam)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.SumFilter(f, filter), alias))
+	sb.builder, sb.err = selectSumFilterImpl(sb.instance, sb.builder, field, condField, condOp, condParam, alias)
 	return sb
 }
 
@@ -1176,20 +655,7 @@ func (sb *Select[T]) SelectAvgFilter(field, condField, condOp, condParam, alias 
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	filter, err := sb.buildSimpleCondition(condField, condOp, condParam)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.AvgFilter(f, filter), alias))
+	sb.builder, sb.err = selectAvgFilterImpl(sb.instance, sb.builder, field, condField, condOp, condParam, alias)
 	return sb
 }
 
@@ -1202,20 +668,7 @@ func (sb *Select[T]) SelectMinFilter(field, condField, condOp, condParam, alias 
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	filter, err := sb.buildSimpleCondition(condField, condOp, condParam)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.MinFilter(f, filter), alias))
+	sb.builder, sb.err = selectMinFilterImpl(sb.instance, sb.builder, field, condField, condOp, condParam, alias)
 	return sb
 }
 
@@ -1228,20 +681,7 @@ func (sb *Select[T]) SelectMaxFilter(field, condField, condOp, condParam, alias 
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	filter, err := sb.buildSimpleCondition(condField, condOp, condParam)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.MaxFilter(f, filter), alias))
+	sb.builder, sb.err = selectMaxFilterImpl(sb.instance, sb.builder, field, condField, condOp, condParam, alias)
 	return sb
 }
 
@@ -1255,20 +695,7 @@ func (sb *Select[T]) SelectCountFilter(field, condField, condOp, condParam, alia
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	filter, err := sb.buildSimpleCondition(condField, condOp, condParam)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.CountFieldFilter(f, filter), alias))
+	sb.builder, sb.err = selectCountFilterImpl(sb.instance, sb.builder, field, condField, condOp, condParam, alias)
 	return sb
 }
 
@@ -1281,41 +708,8 @@ func (sb *Select[T]) SelectCountDistinctFilter(field, condField, condOp, condPar
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	filter, err := sb.buildSimpleCondition(condField, condOp, condParam)
-	if err != nil {
-		sb.err = err
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.CountDistinctFilter(f, filter), alias))
+	sb.builder, sb.err = selectCountDistinctFilterImpl(sb.instance, sb.builder, field, condField, condOp, condParam, alias)
 	return sb
-}
-
-// buildSimpleCondition creates a simple condition (field op param) for FILTER clauses.
-func (sb *Select[T]) buildSimpleCondition(field, operator, param string) (astql.ConditionItem, error) {
-	astqlOp, err := validateOperator(operator)
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return nil, fmt.Errorf("invalid field %q: %w", field, err)
-	}
-
-	p, err := sb.instance.TryP(param)
-	if err != nil {
-		return nil, fmt.Errorf("invalid param %q: %w", param, err)
-	}
-
-	return sb.instance.TryC(f, astqlOp, p)
 }
 
 // --- Additional String Expression Methods ---
@@ -1330,26 +724,7 @@ func (sb *Select[T]) SelectSubstring(field, startParam, lengthParam, alias strin
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	start, err := sb.instance.TryP(startParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid start param %q: %w", startParam, err)
-		return sb
-	}
-
-	length, err := sb.instance.TryP(lengthParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid length param %q: %w", lengthParam, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Substring(f, start, length), alias))
+	sb.builder, sb.err = selectSubstringImpl(sb.instance, sb.builder, field, startParam, lengthParam, alias)
 	return sb
 }
 
@@ -1363,26 +738,7 @@ func (sb *Select[T]) SelectReplace(field, searchParam, replacementParam, alias s
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	search, err := sb.instance.TryP(searchParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid search param %q: %w", searchParam, err)
-		return sb
-	}
-
-	replacement, err := sb.instance.TryP(replacementParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid replacement param %q: %w", replacementParam, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Replace(f, search, replacement), alias))
+	sb.builder, sb.err = selectReplaceImpl(sb.instance, sb.builder, field, searchParam, replacementParam, alias)
 	return sb
 }
 
@@ -1395,23 +751,7 @@ func (sb *Select[T]) SelectConcat(alias string, fields ...string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	if len(fields) < 2 {
-		sb.err = fmt.Errorf("CONCAT requires at least 2 fields")
-		return sb
-	}
-
-	astqlFields := sb.instance.Fields()
-	for _, field := range fields {
-		f, err := sb.instance.TryF(field)
-		if err != nil {
-			sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-			return sb
-		}
-		astqlFields = append(astqlFields, f)
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Concat(astqlFields...), alias))
+	sb.builder, sb.err = selectConcatImpl(sb.instance, sb.builder, alias, fields...)
 	return sb
 }
 
@@ -1426,20 +766,7 @@ func (sb *Select[T]) SelectPower(field, exponentParam, alias string) *Select[T] 
 	if sb.err != nil {
 		return sb
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return sb
-	}
-
-	exp, err := sb.instance.TryP(exponentParam)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid exponent param %q: %w", exponentParam, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Power(f, exp), alias))
+	sb.builder, sb.err = selectPowerImpl(sb.instance, sb.builder, field, exponentParam, alias)
 	return sb
 }
 
@@ -1457,24 +784,7 @@ func (sb *Select[T]) SelectCoalesce(alias string, params ...string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	if len(params) < 2 {
-		sb.err = fmt.Errorf("COALESCE requires at least 2 parameters, got %d", len(params))
-		return sb
-	}
-
-	// Build params slice using Params() factory
-	astqlParams := sb.instance.Params()
-	for _, param := range params {
-		p, err := sb.instance.TryP(param)
-		if err != nil {
-			sb.err = fmt.Errorf("invalid param %q: %w", param, err)
-			return sb
-		}
-		astqlParams = append(astqlParams, p)
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.Coalesce(astqlParams...), alias))
+	sb.builder, sb.err = selectCoalesceImpl(sb.instance, sb.builder, alias, params...)
 	return sb
 }
 
@@ -1489,20 +799,7 @@ func (sb *Select[T]) SelectNullIf(param1, param2, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
 	}
-
-	p1, err := sb.instance.TryP(param1)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid param1 %q: %w", param1, err)
-		return sb
-	}
-
-	p2, err := sb.instance.TryP(param2)
-	if err != nil {
-		sb.err = fmt.Errorf("invalid param2 %q: %w", param2, err)
-		return sb
-	}
-
-	sb.builder = sb.builder.SelectExpr(astql.As(astql.NullIf(p1, p2), alias))
+	sb.builder, sb.err = selectNullIfImpl(sb.instance, sb.builder, param1, param2, alias)
 	return sb
 }
 
@@ -1523,157 +820,10 @@ func (sb *Select[T]) SelectNullIf(param1, param2, alias string) *Select[T] {
 //	    End().
 //	    Exec(ctx, params)
 func (sb *Select[T]) SelectCase() *SelectCaseBuilder[T] {
-	return &SelectCaseBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		caseExpr:      astql.Case(),
-	}
+	return newSelectCaseBuilder(sb)
 }
 
-// SelectCaseBuilder provides a fluent API for building CASE expressions
-// with string-based field and parameter names.
-type SelectCaseBuilder[T any] struct {
-	selectBuilder *Select[T]
-	instance      *astql.ASTQL
-	caseExpr      *astql.CaseBuilder
-	err           error
-}
-
-// When adds a WHEN...THEN clause to the CASE expression.
-// The condition is specified as field operator param, and resultParam is the THEN value.
-//
-// Example:
-//
-//	.When("status", "=", "status_val", "result_val")  // WHEN "status" = :status_val THEN :result_val
-func (scb *SelectCaseBuilder[T]) When(field, operator, param, resultParam string) *SelectCaseBuilder[T] {
-	if scb.err != nil {
-		return scb
-	}
-
-	condition, err := buildCaseWhenCondition(scb.instance, field, operator, param)
-	if err != nil {
-		scb.err = err
-		return scb
-	}
-
-	result, err := scb.instance.TryP(resultParam)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid result param %q: %w", resultParam, err)
-		return scb
-	}
-
-	scb.caseExpr.When(condition, result)
-	return scb
-}
-
-// WhenNull adds a WHEN field IS NULL THEN resultParam clause.
-//
-// Example:
-//
-//	.WhenNull("status", "result_null")  // WHEN "status" IS NULL THEN :result_null
-func (scb *SelectCaseBuilder[T]) WhenNull(field, resultParam string) *SelectCaseBuilder[T] {
-	if scb.err != nil {
-		return scb
-	}
-
-	f, err := scb.instance.TryF(field)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return scb
-	}
-
-	condition, err := scb.instance.TryNull(f)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid NULL condition: %w", err)
-		return scb
-	}
-
-	result, err := scb.instance.TryP(resultParam)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid result param %q: %w", resultParam, err)
-		return scb
-	}
-
-	scb.caseExpr.When(condition, result)
-	return scb
-}
-
-// WhenNotNull adds a WHEN field IS NOT NULL THEN resultParam clause.
-//
-// Example:
-//
-//	.WhenNotNull("status", "result_not_null")  // WHEN "status" IS NOT NULL THEN :result_not_null
-func (scb *SelectCaseBuilder[T]) WhenNotNull(field, resultParam string) *SelectCaseBuilder[T] {
-	if scb.err != nil {
-		return scb
-	}
-
-	f, err := scb.instance.TryF(field)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid field %q: %w", field, err)
-		return scb
-	}
-
-	condition, err := scb.instance.TryNotNull(f)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid NOT NULL condition: %w", err)
-		return scb
-	}
-
-	result, err := scb.instance.TryP(resultParam)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid result param %q: %w", resultParam, err)
-		return scb
-	}
-
-	scb.caseExpr.When(condition, result)
-	return scb
-}
-
-// Else sets the ELSE clause of the CASE expression.
-//
-// Example:
-//
-//	.Else("default_result")  // ELSE :default_result
-func (scb *SelectCaseBuilder[T]) Else(resultParam string) *SelectCaseBuilder[T] {
-	if scb.err != nil {
-		return scb
-	}
-
-	result, err := scb.instance.TryP(resultParam)
-	if err != nil {
-		scb.err = fmt.Errorf("invalid result param %q: %w", resultParam, err)
-		return scb
-	}
-
-	scb.caseExpr.Else(result)
-	return scb
-}
-
-// As sets the alias for the CASE expression.
-//
-// Example:
-//
-//	.As("status_label")  // AS "status_label"
-func (scb *SelectCaseBuilder[T]) As(alias string) *SelectCaseBuilder[T] {
-	if scb.err != nil {
-		return scb
-	}
-	scb.caseExpr.As(alias)
-	return scb
-}
-
-// End completes the CASE expression and adds it to the SELECT clause.
-// Returns the parent Select builder to continue chaining.
-func (scb *SelectCaseBuilder[T]) End() *Select[T] {
-	if scb.err != nil {
-		scb.selectBuilder.err = scb.err
-		return scb.selectBuilder
-	}
-
-	scb.selectBuilder.builder = scb.selectBuilder.builder.SelectExpr(scb.caseExpr.Build())
-	return scb.selectBuilder
-}
+// SelectCaseBuilder is now defined in case.go
 
 // --- Window Function Methods ---
 
@@ -1688,11 +838,7 @@ func (scb *SelectCaseBuilder[T]) End() *Select[T] {
 //	    As("row_num").
 //	    End()
 func (sb *Select[T]) SelectRowNumber() *SelectWindowBuilder[T] {
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.RowNumber(),
-	}
+	return newSelectWindowBuilder(sb, createRowNumberWindow(sb.instance))
 }
 
 // SelectRank starts building a RANK() window function.
@@ -1701,11 +847,7 @@ func (sb *Select[T]) SelectRowNumber() *SelectWindowBuilder[T] {
 //
 //	.SelectRank().OrderBy("score", "DESC").As("rank").End()
 func (sb *Select[T]) SelectRank() *SelectWindowBuilder[T] {
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.Rank(),
-	}
+	return newSelectWindowBuilder(sb, createRankWindow(sb.instance))
 }
 
 // SelectDenseRank starts building a DENSE_RANK() window function.
@@ -1714,11 +856,7 @@ func (sb *Select[T]) SelectRank() *SelectWindowBuilder[T] {
 //
 //	.SelectDenseRank().OrderBy("score", "DESC").As("dense_rank").End()
 func (sb *Select[T]) SelectDenseRank() *SelectWindowBuilder[T] {
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.DenseRank(),
-	}
+	return newSelectWindowBuilder(sb, createDenseRankWindow(sb.instance))
 }
 
 // SelectNtile starts building an NTILE(n) window function.
@@ -1728,27 +866,9 @@ func (sb *Select[T]) SelectDenseRank() *SelectWindowBuilder[T] {
 //	.SelectNtile("num_buckets").OrderBy("value", "ASC").As("quartile").End()
 func (sb *Select[T]) SelectNtile(nParam string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	n, err := sb.instance.TryP(nParam)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid ntile param %q: %w", nParam, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.Ntile(n),
-	}
+	return newSelectWindowBuilder(sb, createNtileWindow(sb.instance, nParam))
 }
 
 // SelectLag starts building a LAG(field, offset) window function.
@@ -1758,36 +878,9 @@ func (sb *Select[T]) SelectNtile(nParam string) *SelectWindowBuilder[T] {
 //	.SelectLag("price", "offset").OrderBy("date", "ASC").As("prev_price").End()
 func (sb *Select[T]) SelectLag(field, offsetParam string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	offset, err := sb.instance.TryP(offsetParam)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid offset param %q: %w", offsetParam, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.Lag(f, offset),
-	}
+	return newSelectWindowBuilder(sb, createLagWindow(sb.instance, field, offsetParam))
 }
 
 // SelectLead starts building a LEAD(field, offset) window function.
@@ -1797,36 +890,9 @@ func (sb *Select[T]) SelectLag(field, offsetParam string) *SelectWindowBuilder[T
 //	.SelectLead("price", "offset").OrderBy("date", "ASC").As("next_price").End()
 func (sb *Select[T]) SelectLead(field, offsetParam string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	offset, err := sb.instance.TryP(offsetParam)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid offset param %q: %w", offsetParam, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.Lead(f, offset),
-	}
+	return newSelectWindowBuilder(sb, createLeadWindow(sb.instance, field, offsetParam))
 }
 
 // SelectFirstValue starts building a FIRST_VALUE(field) window function.
@@ -1836,27 +902,9 @@ func (sb *Select[T]) SelectLead(field, offsetParam string) *SelectWindowBuilder[
 //	.SelectFirstValue("price").OrderBy("date", "ASC").As("first_price").End()
 func (sb *Select[T]) SelectFirstValue(field string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.FirstValue(f),
-	}
+	return newSelectWindowBuilder(sb, createFirstValueWindow(sb.instance, field))
 }
 
 // SelectLastValue starts building a LAST_VALUE(field) window function.
@@ -1866,27 +914,9 @@ func (sb *Select[T]) SelectFirstValue(field string) *SelectWindowBuilder[T] {
 //	.SelectLastValue("price").OrderBy("date", "ASC").As("last_price").End()
 func (sb *Select[T]) SelectLastValue(field string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.LastValue(f),
-	}
+	return newSelectWindowBuilder(sb, createLastValueWindow(sb.instance, field))
 }
 
 // SelectSumOver starts building a SUM(field) OVER window function.
@@ -1896,27 +926,9 @@ func (sb *Select[T]) SelectLastValue(field string) *SelectWindowBuilder[T] {
 //	.SelectSumOver("amount").PartitionBy("category").As("running_total").End()
 func (sb *Select[T]) SelectSumOver(field string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.SumOver(f),
-	}
+	return newSelectWindowBuilder(sb, createSumOverWindow(sb.instance, field))
 }
 
 // SelectAvgOver starts building an AVG(field) OVER window function.
@@ -1926,27 +938,9 @@ func (sb *Select[T]) SelectSumOver(field string) *SelectWindowBuilder[T] {
 //	.SelectAvgOver("score").PartitionBy("category").As("avg_score").End()
 func (sb *Select[T]) SelectAvgOver(field string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.AvgOver(f),
-	}
+	return newSelectWindowBuilder(sb, createAvgOverWindow(sb.instance, field))
 }
 
 // SelectCountOver starts building a COUNT(*) OVER window function.
@@ -1955,11 +949,7 @@ func (sb *Select[T]) SelectAvgOver(field string) *SelectWindowBuilder[T] {
 //
 //	.SelectCountOver().PartitionBy("category").As("category_count").End()
 func (sb *Select[T]) SelectCountOver() *SelectWindowBuilder[T] {
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.CountOver(),
-	}
+	return newSelectWindowBuilder(sb, createCountOverWindow(sb.instance))
 }
 
 // SelectMinOver starts building a MIN(field) OVER window function.
@@ -1969,27 +959,9 @@ func (sb *Select[T]) SelectCountOver() *SelectWindowBuilder[T] {
 //	.SelectMinOver("price").PartitionBy("category").As("min_price").End()
 func (sb *Select[T]) SelectMinOver(field string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.MinOver(f),
-	}
+	return newSelectWindowBuilder(sb, createMinOverWindow(sb.instance, field))
 }
 
 // SelectMaxOver starts building a MAX(field) OVER window function.
@@ -1999,158 +971,12 @@ func (sb *Select[T]) SelectMinOver(field string) *SelectWindowBuilder[T] {
 //	.SelectMaxOver("price").PartitionBy("category").As("max_price").End()
 func (sb *Select[T]) SelectMaxOver(field string) *SelectWindowBuilder[T] {
 	if sb.err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           sb.err,
-		}
+		return newSelectWindowBuilder(sb, newWindowStateWithError(sb.instance, sb.err))
 	}
-
-	f, err := sb.instance.TryF(field)
-	if err != nil {
-		return &SelectWindowBuilder[T]{
-			selectBuilder: sb,
-			instance:      sb.instance,
-			err:           fmt.Errorf("invalid field %q: %w", field, err),
-		}
-	}
-
-	return &SelectWindowBuilder[T]{
-		selectBuilder: sb,
-		instance:      sb.instance,
-		windowExpr:    astql.MaxOver(f),
-	}
+	return newSelectWindowBuilder(sb, createMaxOverWindow(sb.instance, field))
 }
 
-// SelectWindowBuilder provides a fluent API for building window function expressions.
-type SelectWindowBuilder[T any] struct {
-	selectBuilder *Select[T]
-	instance      *astql.ASTQL
-	windowExpr    *astql.WindowBuilder
-	err           error
-	alias         string
-}
-
-// PartitionBy adds PARTITION BY fields to the window specification.
-//
-// Example:
-//
-//	.PartitionBy("department", "location")
-func (swb *SelectWindowBuilder[T]) PartitionBy(fields ...string) *SelectWindowBuilder[T] {
-	if swb.err != nil {
-		return swb
-	}
-
-	astqlFields := swb.instance.Fields()
-	for _, field := range fields {
-		f, err := swb.instance.TryF(field)
-		if err != nil {
-			swb.err = fmt.Errorf("invalid partition field %q: %w", field, err)
-			return swb
-		}
-		astqlFields = append(astqlFields, f)
-	}
-
-	swb.windowExpr.PartitionBy(astqlFields...)
-	return swb
-}
-
-// OrderBy adds ORDER BY to the window specification.
-// Direction must be "ASC" or "DESC".
-//
-// Example:
-//
-//	.OrderBy("created_at", "DESC")
-func (swb *SelectWindowBuilder[T]) OrderBy(field, direction string) *SelectWindowBuilder[T] {
-	if swb.err != nil {
-		return swb
-	}
-
-	astqlDir, err := validateDirection(direction)
-	if err != nil {
-		swb.err = err
-		return swb
-	}
-
-	f, err := swb.instance.TryF(field)
-	if err != nil {
-		swb.err = fmt.Errorf("invalid order field %q: %w", field, err)
-		return swb
-	}
-
-	swb.windowExpr.OrderBy(f, astqlDir)
-	return swb
-}
-
-// Frame sets the frame clause with ROWS BETWEEN start AND end.
-// Valid bounds: "UNBOUNDED PRECEDING", "CURRENT ROW", "UNBOUNDED FOLLOWING"
-//
-// Example:
-//
-//	.Frame("UNBOUNDED PRECEDING", "CURRENT ROW")
-func (swb *SelectWindowBuilder[T]) Frame(start, end string) *SelectWindowBuilder[T] {
-	if swb.err != nil {
-		return swb
-	}
-
-	startBound, err := validateFrameBound(start)
-	if err != nil {
-		swb.err = fmt.Errorf("invalid frame start: %w", err)
-		return swb
-	}
-
-	endBound, err := validateFrameBound(end)
-	if err != nil {
-		swb.err = fmt.Errorf("invalid frame end: %w", err)
-		return swb
-	}
-
-	swb.windowExpr.Frame(startBound, endBound)
-	return swb
-}
-
-// As sets the alias for the window function result.
-//
-// Example:
-//
-//	.As("row_num")
-func (swb *SelectWindowBuilder[T]) As(alias string) *SelectWindowBuilder[T] {
-	if swb.err != nil {
-		return swb
-	}
-	swb.alias = alias
-	return swb
-}
-
-// End completes the window function and adds it to the SELECT clause.
-// Returns the parent Select builder to continue chaining.
-func (swb *SelectWindowBuilder[T]) End() *Select[T] {
-	if swb.err != nil {
-		swb.selectBuilder.err = swb.err
-		return swb.selectBuilder
-	}
-
-	if swb.alias != "" {
-		swb.selectBuilder.builder = swb.selectBuilder.builder.SelectExpr(swb.windowExpr.As(swb.alias))
-	} else {
-		swb.selectBuilder.builder = swb.selectBuilder.builder.SelectExpr(swb.windowExpr.Build())
-	}
-	return swb.selectBuilder
-}
-
-// validateFrameBound converts a string frame bound to astql.FrameBound.
-func validateFrameBound(bound string) (astql.FrameBound, error) {
-	switch strings.ToUpper(bound) {
-	case "UNBOUNDED PRECEDING":
-		return astql.FrameUnboundedPreceding, nil
-	case "CURRENT ROW":
-		return astql.FrameCurrentRow, nil
-	case "UNBOUNDED FOLLOWING":
-		return astql.FrameUnboundedFollowing, nil
-	default:
-		return astql.FrameUnboundedPreceding, fmt.Errorf("invalid frame bound %q: must be UNBOUNDED PRECEDING, CURRENT ROW, or UNBOUNDED FOLLOWING", bound)
-	}
-}
+// SelectWindowBuilder is now defined in window.go
 
 // Render builds and renders the query to SQL with parameter placeholders.
 // Returns the SQL string and list of required parameters for sqlx execution.
@@ -2355,45 +1181,4 @@ func NotBetween(field, lowParam, highParam string) Condition {
 	}
 }
 
-// buildAggregateCondition creates an ASTQL AggregateCondition from string parameters.
-// aggFunc: "count", "sum", "avg", "min", "max", "count_distinct"
-// field: field name (empty string for COUNT(*))
-// op: the ASTQL operator
-// param: parameter name
-func buildAggregateCondition(instance *astql.ASTQL, aggFunc, field, param string, op astql.Operator) (astql.AggregateCondition, error) {
-	var aggType astql.AggregateFunc
-	switch strings.ToLower(aggFunc) {
-	case "count":
-		aggType = astql.AggCountField
-	case "count_distinct":
-		aggType = astql.AggCountDistinct
-	case "sum":
-		aggType = astql.AggSum
-	case "avg":
-		aggType = astql.AggAvg
-	case "min":
-		aggType = astql.AggMin
-	case "max":
-		aggType = astql.AggMax
-	default:
-		return astql.AggregateCondition{}, fmt.Errorf("invalid aggregate function %q, must be one of: count, sum, avg, min, max, count_distinct", aggFunc)
-	}
-
-	// Validate and create param
-	p, err := instance.TryP(param)
-	if err != nil {
-		return astql.AggregateCondition{}, fmt.Errorf("invalid param %q: %w", param, err)
-	}
-
-	// Handle field (nil for COUNT(*))
-	if field == "" {
-		return instance.TryAggC(aggType, nil, op, p)
-	}
-
-	f, err := instance.TryF(field)
-	if err != nil {
-		return astql.AggregateCondition{}, fmt.Errorf("invalid field %q: %w", field, err)
-	}
-
-	return instance.TryAggC(aggType, &f, op, p)
-}
+// Note: buildAggregateCondition is defined in builder.go to avoid duplication.

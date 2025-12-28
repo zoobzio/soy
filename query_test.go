@@ -1310,3 +1310,1192 @@ func TestQuery_WindowFunctions(t *testing.T) {
 		}
 	})
 }
+
+func TestQuery_WhereBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereBetween", func(t *testing.T) {
+		result, err := cereal.Query().
+			WhereBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "BETWEEN") {
+			t.Errorf("SQL missing BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":min_age") {
+			t.Errorf("SQL missing min_age param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":max_age") {
+			t.Errorf("SQL missing max_age param: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("WhereNotBetween", func(t *testing.T) {
+		result, err := cereal.Query().
+			WhereNotBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "NOT BETWEEN") {
+			t.Errorf("SQL missing NOT BETWEEN: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("Between condition helper", func(t *testing.T) {
+		result, err := cereal.Query().
+			WhereAnd(Between("age", "min_age", "max_age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "BETWEEN") {
+			t.Errorf("SQL missing BETWEEN: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("NotBetween condition helper", func(t *testing.T) {
+		result, err := cereal.Query().
+			WhereAnd(NotBetween("age", "min_age", "max_age")).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "NOT BETWEEN") {
+			t.Errorf("SQL missing NOT BETWEEN: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("WhereBetween invalid field", func(t *testing.T) {
+		_, err := cereal.Query().
+			WhereBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("WhereBetween empty low param", func(t *testing.T) {
+		_, err := cereal.Query().
+			WhereBetween("age", "", "max").
+			Render()
+		if err == nil {
+			t.Error("expected error for empty low param")
+		}
+	})
+
+	t.Run("WhereBetween empty high param", func(t *testing.T) {
+		_, err := cereal.Query().
+			WhereBetween("age", "min", "").
+			Render()
+		if err == nil {
+			t.Error("expected error for empty high param")
+		}
+	})
+}
+
+func TestQuery_WhereFields(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+	sentinel.Tag("default")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereFields equal", func(t *testing.T) {
+		result, err := cereal.Query().
+			WhereFields("id", "=", "age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, `"id" = "age"`) {
+			t.Errorf("SQL missing field comparison: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("WhereFields less than", func(t *testing.T) {
+		result, err := cereal.Query().
+			WhereFields("id", "<", "age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, `"id" < "age"`) {
+			t.Errorf("SQL missing field comparison: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("WhereFields invalid operator", func(t *testing.T) {
+		_, err := cereal.Query().
+			WhereFields("id", "INVALID", "age").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid operator")
+		}
+	})
+}
+
+func TestQuery_StringExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SelectUpper", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectUpper("name", "upper_name").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "UPPER") {
+			t.Errorf("SQL missing UPPER: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"upper_name"`) {
+			t.Errorf("SQL missing alias: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectLower", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectLower("email", "lower_email").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "LOWER") {
+			t.Errorf("SQL missing LOWER: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectLength", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectLength("name", "name_len").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "LENGTH") {
+			t.Errorf("SQL missing LENGTH: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectTrim", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectTrim("name", "trimmed").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "TRIM") {
+			t.Errorf("SQL missing TRIM: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectLTrim", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectLTrim("name", "ltrimmed").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "LTRIM") {
+			t.Errorf("SQL missing LTRIM: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectRTrim", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectRTrim("name", "rtrimmed").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "RTRIM") {
+			t.Errorf("SQL missing RTRIM: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectSubstring", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectSubstring("name", "start_pos", "length_param", "name_sub").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "SUBSTRING") {
+			t.Errorf("SQL missing SUBSTRING: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectReplace", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectReplace("name", "old_val", "new_val", "replaced").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "REPLACE") {
+			t.Errorf("SQL missing REPLACE: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectConcat", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectConcat("full_info", "name", "email").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CONCAT") {
+			t.Errorf("SQL missing CONCAT: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectUpper invalid field", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectUpper("nonexistent", "alias").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+}
+
+func TestQuery_MathExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SelectAbs", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectAbs("age", "abs_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "ABS") {
+			t.Errorf("SQL missing ABS: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCeil", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCeil("age", "ceil_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CEIL") {
+			t.Errorf("SQL missing CEIL: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectFloor", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectFloor("age", "floor_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "FLOOR") {
+			t.Errorf("SQL missing FLOOR: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectRound", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectRound("age", "round_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "ROUND") {
+			t.Errorf("SQL missing ROUND: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectSqrt", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectSqrt("age", "sqrt_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "SQRT") {
+			t.Errorf("SQL missing SQRT: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectPower", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectPower("age", "exponent", "power_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "POWER") {
+			t.Errorf("SQL missing POWER: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectAbs invalid field", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectAbs("nonexistent", "alias").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+}
+
+func TestQuery_CastExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SelectCast to TEXT", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCast("age", CastText, "age_str").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CAST") {
+			t.Errorf("SQL missing CAST: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "TEXT") {
+			t.Errorf("SQL missing TEXT type: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCast to INTEGER", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCast("id", CastInteger, "id_int").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CAST") {
+			t.Errorf("SQL missing CAST: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCast invalid field", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectCast("nonexistent", CastText, "alias").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+}
+
+func TestQuery_DateExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SelectNow", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectNow("current_ts").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "NOW") {
+			t.Errorf("SQL missing NOW: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCurrentDate", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCurrentDate("today").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CURRENT_DATE") {
+			t.Errorf("SQL missing CURRENT_DATE: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCurrentTime", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCurrentTime("now_time").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CURRENT_TIME") {
+			t.Errorf("SQL missing CURRENT_TIME: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCurrentTimestamp", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCurrentTimestamp("ts").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CURRENT_TIMESTAMP") {
+			t.Errorf("SQL missing CURRENT_TIMESTAMP: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+}
+
+func TestQuery_AggregateExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SelectCountStar", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCountStar("total").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "COUNT(*)") {
+			t.Errorf("SQL missing COUNT(*): %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCount", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCount("id", "count_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "COUNT") {
+			t.Errorf("SQL missing COUNT: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCountDistinct", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCountDistinct("email", "unique_emails").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "COUNT") {
+			t.Errorf("SQL missing COUNT: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "DISTINCT") {
+			t.Errorf("SQL missing DISTINCT: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectSum", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectSum("age", "age_sum").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "SUM") {
+			t.Errorf("SQL missing SUM: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectAvg", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectAvg("age", "avg_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "AVG") {
+			t.Errorf("SQL missing AVG: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectMin", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectMin("age", "min_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "MIN") {
+			t.Errorf("SQL missing MIN: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectMax", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectMax("age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "MAX") {
+			t.Errorf("SQL missing MAX: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectCount invalid field", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectCount("nonexistent", "alias").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("combined expression query", func(t *testing.T) {
+		result, err := cereal.Query().
+			Fields("name").
+			SelectUpper("name", "upper_name").
+			SelectCount("id", "count").
+			GroupBy("name").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "UPPER") {
+			t.Errorf("SQL missing UPPER: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "COUNT") {
+			t.Errorf("SQL missing COUNT: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "GROUP BY") {
+			t.Errorf("SQL missing GROUP BY: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+}
+
+func TestQuery_AggregateFilter(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+	sentinel.Tag("default")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SumFilter", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectSumFilter("age", "name", "=", "filter_val", "filtered_sum").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "SUM") && !strings.Contains(result.SQL, "FILTER") {
+			t.Errorf("SQL missing SUM FILTER: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("AvgFilter", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectAvgFilter("age", "name", "=", "filter_val", "filtered_avg").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "AVG") {
+			t.Errorf("SQL missing AVG: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("MinFilter", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectMinFilter("age", "name", "=", "filter_val", "filtered_min").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "MIN") {
+			t.Errorf("SQL missing MIN: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("MaxFilter", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectMaxFilter("age", "name", "=", "filter_val", "filtered_max").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "MAX") {
+			t.Errorf("SQL missing MAX: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CountFilter", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCountFilter("id", "name", "=", "filter_val", "filtered_count").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "COUNT") {
+			t.Errorf("SQL missing COUNT: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CountDistinctFilter", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCountDistinctFilter("email", "name", "=", "filter_val", "filtered_distinct").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "COUNT") {
+			t.Errorf("SQL missing COUNT: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+}
+
+func TestQuery_NullExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SelectCoalesce", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCoalesce("age", "default_age", "age_or_default").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "COALESCE") {
+			t.Errorf("SQL missing COALESCE: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("SelectNullIf", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectNullIf("age", "null_val", "nullable_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "NULLIF") {
+			t.Errorf("SQL missing NULLIF: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+}
+
+func TestQuery_CaseExpressions(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("simple CASE with single WHEN", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCase().
+			When("age", ">=", "adult_age", "result_adult").
+			Else("result_minor").
+			As("age_group").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "CASE") {
+			t.Errorf("SQL missing CASE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "WHEN") {
+			t.Errorf("SQL missing WHEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "THEN") {
+			t.Errorf("SQL missing THEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "ELSE") {
+			t.Errorf("SQL missing ELSE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "END") {
+			t.Errorf("SQL missing END: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"age_group"`) {
+			t.Errorf("SQL missing alias: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CASE with multiple WHEN clauses", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCase().
+			When("age", "<", "teen_age", "result_child").
+			When("age", "<", "adult_age", "result_teen").
+			When("age", "<", "senior_age", "result_adult").
+			Else("result_senior").
+			As("life_stage").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		whenCount := strings.Count(result.SQL, "WHEN")
+		if whenCount != 3 {
+			t.Errorf("Expected 3 WHEN clauses, got %d: %s", whenCount, result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CASE with WhenNull", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCase().
+			WhenNull("age", "result_unknown").
+			Else("result_known").
+			As("age_status").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NULL") {
+			t.Errorf("SQL missing IS NULL: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CASE with WhenNotNull", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCase().
+			WhenNotNull("age", "result_has_age").
+			Else("result_no_age").
+			As("has_age").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, "IS NOT NULL") {
+			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CASE without ELSE", func(t *testing.T) {
+		result, err := cereal.Query().
+			SelectCase().
+			When("age", ">=", "adult_age", "result_adult").
+			As("is_adult").
+			End().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if strings.Contains(result.SQL, "ELSE") {
+			t.Errorf("SQL should not have ELSE: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CASE chained with other operations", func(t *testing.T) {
+		result, err := cereal.Query().
+			Fields("id", "name").
+			SelectCase().
+			When("age", ">=", "adult_age", "result_adult").
+			Else("result_minor").
+			As("age_group").
+			End().
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if !strings.Contains(result.SQL, `"id"`) {
+			t.Errorf("SQL missing id field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "CASE") {
+			t.Errorf("SQL missing CASE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("CASE with invalid field returns error", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectCase().
+			When("nonexistent", "=", "val", "result").
+			As("alias").
+			End().
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("CASE with invalid operator returns error", func(t *testing.T) {
+		_, err := cereal.Query().
+			SelectCase().
+			When("age", "INVALID", "val", "result").
+			As("alias").
+			End().
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid operator")
+		}
+	})
+}
+
+func TestQuery_OrderByNulls(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("NULLS FIRST", func(t *testing.T) {
+		result, err := cereal.Query().
+			OrderByNulls("age", "ASC", "FIRST").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NULLS FIRST") {
+			t.Errorf("SQL missing NULLS FIRST: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "ORDER BY") {
+			t.Errorf("SQL missing ORDER BY: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("NULLS LAST", func(t *testing.T) {
+		result, err := cereal.Query().
+			OrderByNulls("age", "DESC", "LAST").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NULLS LAST") {
+			t.Errorf("SQL missing NULLS LAST: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("case insensitive nulls", func(t *testing.T) {
+		nullsOptions := []string{"first", "FIRST", "First", "last", "LAST", "Last"}
+		for _, nulls := range nullsOptions {
+			result, err := cereal.Query().
+				OrderByNulls("age", "ASC", nulls).
+				Render()
+			if err != nil {
+				t.Errorf("OrderByNulls with %s failed: %v", nulls, err)
+				continue
+			}
+			if !strings.Contains(result.SQL, "NULLS") {
+				t.Errorf("SQL missing NULLS for %s: %s", nulls, result.SQL)
+			}
+		}
+	})
+
+	t.Run("invalid nulls returns error", func(t *testing.T) {
+		_, err := cereal.Query().
+			OrderByNulls("age", "ASC", "INVALID").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid nulls option")
+		}
+	})
+
+	t.Run("invalid field returns error", func(t *testing.T) {
+		_, err := cereal.Query().
+			OrderByNulls("nonexistent", "ASC", "FIRST").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("invalid direction returns error", func(t *testing.T) {
+		_, err := cereal.Query().
+			OrderByNulls("age", "INVALID", "FIRST").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid direction")
+		}
+	})
+}
+
+func TestQuery_Distinct(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("DISTINCT", func(t *testing.T) {
+		result, err := cereal.Query().
+			Fields("name").
+			Distinct().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "SELECT DISTINCT") {
+			t.Errorf("SQL missing SELECT DISTINCT: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+}
+
+func TestQuery_DistinctOn(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("DISTINCT ON single field", func(t *testing.T) {
+		result, err := cereal.Query().
+			DistinctOn("name").
+			OrderBy("name", "ASC").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "DISTINCT ON") {
+			t.Errorf("SQL missing DISTINCT ON: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"name"`) {
+			t.Errorf("SQL missing name field: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("DISTINCT ON multiple fields", func(t *testing.T) {
+		result, err := cereal.Query().
+			DistinctOn("name", "email").
+			OrderBy("name", "ASC").
+			OrderBy("email", "ASC").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "DISTINCT ON") {
+			t.Errorf("SQL missing DISTINCT ON: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("invalid field returns error", func(t *testing.T) {
+		_, err := cereal.Query().
+			DistinctOn("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("empty DistinctOn is ignored", func(t *testing.T) {
+		result, err := cereal.Query().
+			DistinctOn().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+		if strings.Contains(result.SQL, "DISTINCT ON") {
+			t.Errorf("SQL should not contain DISTINCT ON when no fields: %s", result.SQL)
+		}
+	})
+}
+
+func TestQuery_RowLocking(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("FOR UPDATE", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("id", "=", "user_id").
+			ForUpdate().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR UPDATE") {
+			t.Errorf("SQL missing FOR UPDATE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("FOR NO KEY UPDATE", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("id", "=", "user_id").
+			ForNoKeyUpdate().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR NO KEY UPDATE") {
+			t.Errorf("SQL missing FOR NO KEY UPDATE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("FOR SHARE", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("id", "=", "user_id").
+			ForShare().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR SHARE") {
+			t.Errorf("SQL missing FOR SHARE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("FOR KEY SHARE", func(t *testing.T) {
+		result, err := cereal.Query().
+			Where("id", "=", "user_id").
+			ForKeyShare().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR KEY SHARE") {
+			t.Errorf("SQL missing FOR KEY SHARE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+}

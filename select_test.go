@@ -1805,3 +1805,167 @@ func TestSelect_WindowFunctions(t *testing.T) {
 		}
 	})
 }
+
+func TestSelect_OrderByNulls(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("NULLS FIRST", func(t *testing.T) {
+		result, err := cereal.Select().
+			OrderByNulls("age", "ASC", "FIRST").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NULLS FIRST") {
+			t.Errorf("SQL missing NULLS FIRST: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("NULLS LAST", func(t *testing.T) {
+		result, err := cereal.Select().
+			OrderByNulls("age", "DESC", "LAST").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NULLS LAST") {
+			t.Errorf("SQL missing NULLS LAST: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("invalid nulls returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			OrderByNulls("age", "ASC", "INVALID").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid nulls option")
+		}
+	})
+}
+
+func TestSelect_DistinctOn(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("DISTINCT ON", func(t *testing.T) {
+		result, err := cereal.Select().
+			DistinctOn("name").
+			OrderBy("name", "ASC").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "DISTINCT ON") {
+			t.Errorf("SQL missing DISTINCT ON: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("invalid field returns error", func(t *testing.T) {
+		_, err := cereal.Select().
+			DistinctOn("nonexistent").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+}
+
+func TestSelect_RowLocking(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("FOR UPDATE", func(t *testing.T) {
+		result, err := cereal.Select().
+			Where("id", "=", "user_id").
+			ForUpdate().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR UPDATE") {
+			t.Errorf("SQL missing FOR UPDATE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("FOR NO KEY UPDATE", func(t *testing.T) {
+		result, err := cereal.Select().
+			Where("id", "=", "user_id").
+			ForNoKeyUpdate().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR NO KEY UPDATE") {
+			t.Errorf("SQL missing FOR NO KEY UPDATE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("FOR SHARE", func(t *testing.T) {
+		result, err := cereal.Select().
+			Where("id", "=", "user_id").
+			ForShare().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR SHARE") {
+			t.Errorf("SQL missing FOR SHARE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("FOR KEY SHARE", func(t *testing.T) {
+		result, err := cereal.Select().
+			Where("id", "=", "user_id").
+			ForKeyShare().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "FOR KEY SHARE") {
+			t.Errorf("SQL missing FOR KEY SHARE: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+}

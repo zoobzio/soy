@@ -83,6 +83,31 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
+// CastType represents SQL cast types.
+// Re-exported from astql for convenience.
+type CastType = astql.CastType
+
+// Cast type constants.
+const (
+	CastText            CastType = astql.CastText
+	CastInteger         CastType = astql.CastInteger
+	CastBigint          CastType = astql.CastBigint
+	CastSmallint        CastType = astql.CastSmallint
+	CastNumeric         CastType = astql.CastNumeric
+	CastReal            CastType = astql.CastReal
+	CastDoublePrecision CastType = astql.CastDoublePrecision
+	CastBoolean         CastType = astql.CastBoolean
+	CastDate            CastType = astql.CastDate
+	CastTime            CastType = astql.CastTime
+	CastTimestamp       CastType = astql.CastTimestamp
+	CastTimestampTZ     CastType = astql.CastTimestampTZ
+	CastInterval        CastType = astql.CastInterval
+	CastUUID            CastType = astql.CastUUID
+	CastJSON            CastType = astql.CastJSON
+	CastJSONB           CastType = astql.CastJSONB
+	CastBytea           CastType = astql.CastBytea
+)
+
 // Cereal provides a type-safe query API for a specific model type.
 // Each instance holds the ASTQL schema and metadata for building validated queries.
 type Cereal[T any] struct {
