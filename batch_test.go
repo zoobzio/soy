@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -21,12 +21,12 @@ type batchTestUser struct {
 func TestExecuteBatch_RequiresWhere(t *testing.T) {
 	db := &sqlx.DB{}
 
-	cereal, err := New[batchTestUser](db, "users", postgres.New())
+	soy, err := New[batchTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Update(tbl)
 
 	batchParams := []map[string]any{
@@ -44,12 +44,12 @@ func TestExecuteBatch_RequiresWhere(t *testing.T) {
 func TestExecuteBatch_EmptyBatch(t *testing.T) {
 	db := &sqlx.DB{}
 
-	cereal, err := New[batchTestUser](db, "users", postgres.New())
+	soy, err := New[batchTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Update(tbl)
 
 	var batchParams []map[string]any
@@ -69,12 +69,12 @@ func TestExecuteBatch_EmptyBatch(t *testing.T) {
 func TestExecuteBatch_BuilderError(t *testing.T) {
 	db := &sqlx.DB{}
 
-	cereal, err := New[batchTestUser](db, "users", postgres.New())
+	soy, err := New[batchTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Update(tbl)
 
 	batchParams := []map[string]any{

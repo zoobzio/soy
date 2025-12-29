@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 type Delete[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.Builder
-	cereal   cerealExecutor // interface for execution
-	hasWhere bool           // tracks if WHERE was called
-	err      error          // stores first error encountered during building
+	soy      soyExecutor // interface for execution
+	hasWhere bool        // tracks if WHERE was called
+	err      error       // stores first error encountered during building
 }
 
 // Where adds a simple WHERE condition with field = param pattern.
@@ -50,8 +50,8 @@ func (db *Delete[T]) Where(field, operator, param string) *Delete[T] {
 // Example:
 //
 //	.WhereAnd(
-//	    cereal.C("age", ">=", "min_age"),
-//	    cereal.C("status", "=", "inactive"),
+//	    soy.C("age", ">=", "min_age"),
+//	    soy.C("status", "=", "inactive"),
 //	)
 func (db *Delete[T]) WhereAnd(conditions ...Condition) *Delete[T] {
 	if db.err != nil {
@@ -88,8 +88,8 @@ func (db *Delete[T]) WhereAnd(conditions ...Condition) *Delete[T] {
 // Example:
 //
 //	.WhereOr(
-//	    cereal.C("status", "=", "deleted"),
-//	    cereal.C("status", "=", "archived"),
+//	    soy.C("status", "=", "deleted"),
+//	    soy.C("status", "=", "archived"),
 //	)
 func (db *Delete[T]) WhereOr(conditions ...Condition) *Delete[T] {
 	if db.err != nil {
@@ -284,11 +284,11 @@ func (db *Delete[T]) buildCondition(cond Condition) (astql.ConditionItem, error)
 // Example:
 //
 //	params := map[string]any{"user_id": 123}
-//	rowsDeleted, err := cereal.Delete().
+//	rowsDeleted, err := soy.Delete().
 //	    Where("id", "=", "user_id").
 //	    Exec(ctx, params)
 func (db *Delete[T]) Exec(ctx context.Context, params map[string]any) (int64, error) {
-	return db.exec(ctx, db.cereal.execer(), params)
+	return db.exec(ctx, db.soy.execer(), params)
 }
 
 // ExecTx executes the DELETE query within a transaction.
@@ -306,11 +306,11 @@ func (db *Delete[T]) ExecTx(ctx context.Context, tx *sqlx.Tx, params map[string]
 //	    {"user_id": 1},
 //	    {"user_id": 2},
 //	}
-//	rowsDeleted, err := cereal.Remove().
+//	rowsDeleted, err := soy.Remove().
 //	    Where("id", "=", "user_id").
 //	    ExecBatch(ctx, batchParams)
 func (db *Delete[T]) ExecBatch(ctx context.Context, batchParams []map[string]any) (int64, error) {
-	return db.execBatch(ctx, db.cereal.execer(), batchParams)
+	return db.execBatch(ctx, db.soy.execer(), batchParams)
 }
 
 // ExecBatchTx executes the DELETE query for multiple parameter sets within a transaction.
@@ -321,7 +321,7 @@ func (db *Delete[T]) ExecBatchTx(ctx context.Context, tx *sqlx.Tx, batchParams [
 
 // execBatch is the internal batch execution method.
 func (db *Delete[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, batchParams []map[string]any) (int64, error) {
-	return executeBatch(ctx, execer, batchParams, db.builder, db.cereal.renderer(), db.cereal.getTableName(), "DELETE", db.hasWhere, db.err)
+	return executeBatch(ctx, execer, batchParams, db.builder, db.soy.renderer(), db.soy.getTableName(), "DELETE", db.hasWhere, db.err)
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.
@@ -337,13 +337,13 @@ func (db *Delete[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 	}
 
 	// Render the query
-	result, err := db.builder.Render(db.cereal.renderer())
+	result, err := db.builder.Render(db.soy.renderer())
 	if err != nil {
 		return 0, fmt.Errorf("failed to render DELETE query: %w", err)
 	}
 
 	// Emit query started event
-	tableName := db.cereal.getTableName()
+	tableName := db.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field("DELETE"),
@@ -399,7 +399,7 @@ func (db *Delete[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("delete  has errors: %w", db.err)
 	}
 
-	result, err := db.builder.Render(db.cereal.renderer())
+	result, err := db.builder.Render(db.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render DELETE query: %w", err)
 	}

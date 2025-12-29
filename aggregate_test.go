@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -24,13 +24,13 @@ func TestMin_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("MIN with field", func(t *testing.T) {
-		result, err := cereal.Min("age").Render()
+		result, err := soy.Min("age").Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -52,7 +52,7 @@ func TestMin_Basic(t *testing.T) {
 	})
 
 	t.Run("MIN with WHERE", func(t *testing.T) {
-		result, err := cereal.Min("age").
+		result, err := soy.Min("age").
 			Where("age", ">=", "min_age").
 			Render()
 		if err != nil {
@@ -75,7 +75,7 @@ func TestMin_Basic(t *testing.T) {
 	})
 
 	t.Run("MIN with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Min("age").
+		result, err := soy.Min("age").
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -97,7 +97,7 @@ func TestMin_Basic(t *testing.T) {
 	})
 
 	t.Run("MIN with WhereOr", func(t *testing.T) {
-		result, err := cereal.Min("age").
+		result, err := soy.Min("age").
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -119,7 +119,7 @@ func TestMin_Basic(t *testing.T) {
 	})
 
 	t.Run("MIN with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Min("age").
+		result, err := soy.Min("age").
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -141,13 +141,13 @@ func TestMax_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("MAX with field", func(t *testing.T) {
-		result, err := cereal.Max("age").Render()
+		result, err := soy.Max("age").Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -169,7 +169,7 @@ func TestMax_Basic(t *testing.T) {
 	})
 
 	t.Run("MAX with WHERE", func(t *testing.T) {
-		result, err := cereal.Max("age").
+		result, err := soy.Max("age").
 			Where("age", ">=", "min_age").
 			Render()
 		if err != nil {
@@ -192,7 +192,7 @@ func TestMax_Basic(t *testing.T) {
 	})
 
 	t.Run("MAX with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Max("age").
+		result, err := soy.Max("age").
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -214,7 +214,7 @@ func TestMax_Basic(t *testing.T) {
 	})
 
 	t.Run("MAX with WhereOr", func(t *testing.T) {
-		result, err := cereal.Max("age").
+		result, err := soy.Max("age").
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -236,7 +236,7 @@ func TestMax_Basic(t *testing.T) {
 	})
 
 	t.Run("MAX with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Max("age").
+		result, err := soy.Max("age").
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -258,13 +258,13 @@ func TestSum_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SUM with field", func(t *testing.T) {
-		result, err := cereal.Sum("age").Render()
+		result, err := soy.Sum("age").Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -286,7 +286,7 @@ func TestSum_Basic(t *testing.T) {
 	})
 
 	t.Run("SUM with WHERE", func(t *testing.T) {
-		result, err := cereal.Sum("age").
+		result, err := soy.Sum("age").
 			Where("age", ">=", "min_age").
 			Render()
 		if err != nil {
@@ -312,7 +312,7 @@ func TestSum_Basic(t *testing.T) {
 	})
 
 	t.Run("SUM with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Sum("age").
+		result, err := soy.Sum("age").
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -334,7 +334,7 @@ func TestSum_Basic(t *testing.T) {
 	})
 
 	t.Run("SUM with WhereOr", func(t *testing.T) {
-		result, err := cereal.Sum("age").
+		result, err := soy.Sum("age").
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -356,7 +356,7 @@ func TestSum_Basic(t *testing.T) {
 	})
 
 	t.Run("SUM with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Sum("age").
+		result, err := soy.Sum("age").
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -378,13 +378,13 @@ func TestAvg_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("AVG with field", func(t *testing.T) {
-		result, err := cereal.Avg("age").Render()
+		result, err := soy.Avg("age").Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -406,7 +406,7 @@ func TestAvg_Basic(t *testing.T) {
 	})
 
 	t.Run("AVG with WHERE", func(t *testing.T) {
-		result, err := cereal.Avg("age").
+		result, err := soy.Avg("age").
 			Where("age", ">=", "min_age").
 			Render()
 		if err != nil {
@@ -429,7 +429,7 @@ func TestAvg_Basic(t *testing.T) {
 	})
 
 	t.Run("AVG with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Avg("age").
+		result, err := soy.Avg("age").
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -451,7 +451,7 @@ func TestAvg_Basic(t *testing.T) {
 	})
 
 	t.Run("AVG with WhereOr", func(t *testing.T) {
-		result, err := cereal.Avg("age").
+		result, err := soy.Avg("age").
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -473,7 +473,7 @@ func TestAvg_Basic(t *testing.T) {
 	})
 
 	t.Run("AVG with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Avg("age").
+		result, err := soy.Avg("age").
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -495,13 +495,13 @@ func TestCount_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("COUNT all records", func(t *testing.T) {
-		result, err := cereal.Count().Render()
+		result, err := soy.Count().Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -520,7 +520,7 @@ func TestCount_Basic(t *testing.T) {
 	})
 
 	t.Run("COUNT with WHERE", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			Where("age", ">=", "min_age").
 			Render()
 		if err != nil {
@@ -546,7 +546,7 @@ func TestCount_Basic(t *testing.T) {
 	})
 
 	t.Run("COUNT with multiple WHERE (AND)", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			Where("age", ">=", "min_age").
 			Where("age", "<=", "max_age").
 			Render()
@@ -566,7 +566,7 @@ func TestCount_Basic(t *testing.T) {
 	})
 
 	t.Run("COUNT with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -588,7 +588,7 @@ func TestCount_Basic(t *testing.T) {
 	})
 
 	t.Run("COUNT with WhereOr", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -610,7 +610,7 @@ func TestCount_Basic(t *testing.T) {
 	})
 
 	t.Run("COUNT with WhereNull", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			WhereNull("age").
 			Render()
 		if err != nil {
@@ -628,7 +628,7 @@ func TestCount_Basic(t *testing.T) {
 	})
 
 	t.Run("COUNT with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -653,13 +653,13 @@ func TestCount_ComplexConditions(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("COUNT with complex conditions", func(t *testing.T) {
-		result, err := cereal.Count().
+		result, err := soy.Count().
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -694,7 +694,7 @@ func TestAggregate_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -703,11 +703,11 @@ func TestAggregate_InstanceAccess(t *testing.T) {
 		name    string
 		builder *Aggregate[aggregateTestUser]
 	}{
-		{"Min", cereal.Min("age")},
-		{"Max", cereal.Max("age")},
-		{"Sum", cereal.Sum("age")},
-		{"Avg", cereal.Avg("age")},
-		{"Count", cereal.Count()},
+		{"Min", soy.Min("age")},
+		{"Max", soy.Max("age")},
+		{"Sum", soy.Sum("age")},
+		{"Avg", soy.Avg("age")},
+		{"Count", soy.Count()},
 	}
 
 	for _, tt := range tests {
@@ -732,18 +732,18 @@ func TestAggregate_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("successful MustRender", func(t *testing.T) {
 		builders := map[string]*Aggregate[aggregateTestUser]{
-			"Min":   cereal.Min("age"),
-			"Max":   cereal.Max("age"),
-			"Sum":   cereal.Sum("age"),
-			"Avg":   cereal.Avg("age"),
-			"Count": cereal.Count(),
+			"Min":   soy.Min("age"),
+			"Max":   soy.Max("age"),
+			"Sum":   soy.Sum("age"),
+			"Avg":   soy.Avg("age"),
+			"Count": soy.Count(),
 		}
 
 		for name, builder := range builders {
@@ -765,7 +765,7 @@ func TestAggregate_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid field")
 			}
 		}()
-		cereal.Min("nonexistent_field").MustRender()
+		soy.Min("nonexistent_field").MustRender()
 	})
 
 	t.Run("MustRender panics on invalid operator", func(t *testing.T) {
@@ -774,7 +774,7 @@ func TestAggregate_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid operator")
 			}
 		}()
-		cereal.Min("age").
+		soy.Min("age").
 			Where("age", "INVALID", "value").
 			MustRender()
 	})
@@ -786,7 +786,7 @@ func TestAggregate_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[aggregateTestUser](db, "users", postgres.New())
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -794,7 +794,7 @@ func TestAggregate_Validation(t *testing.T) {
 	t.Run("all supported operators in WHERE", func(t *testing.T) {
 		operators := []string{"=", "!=", ">", ">=", "<", "<="}
 		for _, op := range operators {
-			result, err := cereal.Min("age").
+			result, err := soy.Min("age").
 				Where("age", op, "value").
 				Render()
 			if err != nil {

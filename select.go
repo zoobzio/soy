@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 	"github.com/zoobzio/capitan"
 )
 
-// cerealExecutor provides the interface for executing queries.
+// soyExecutor provides the interface for executing queries.
 // This allows s to access DB and table info without circular dependencies.
-type cerealExecutor interface {
+type soyExecutor interface {
 	execer() sqlx.ExtContext
 	getTableName() string
 	renderer() astql.Renderer
@@ -24,8 +24,8 @@ type cerealExecutor interface {
 type Select[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.Builder
-	cereal   cerealExecutor // interface for execution
-	err      error          // stores first error encountered during building
+	soy      soyExecutor // interface for execution
+	err      error       // stores first error encountered during building
 }
 
 // Condition represents a WHERE condition with string-based components.
@@ -71,8 +71,8 @@ func (sb *Select[T]) Where(field, operator, param string) *Select[T] {
 // Example:
 //
 //	.WhereAnd(
-//	    cereal.C("age", ">=", "min_age"),
-//	    cereal.C("age", "<=", "max_age"),
+//	    soy.C("age", ">=", "min_age"),
+//	    soy.C("age", "<=", "max_age"),
 //	)
 func (sb *Select[T]) WhereAnd(conditions ...Condition) *Select[T] {
 	if sb.err != nil {
@@ -87,8 +87,8 @@ func (sb *Select[T]) WhereAnd(conditions ...Condition) *Select[T] {
 // Example:
 //
 //	.WhereOr(
-//	    cereal.C("status", "=", "active"),
-//	    cereal.C("status", "=", "pending"),
+//	    soy.C("status", "=", "active"),
+//	    soy.C("status", "=", "pending"),
 //	)
 func (sb *Select[T]) WhereOr(conditions ...Condition) *Select[T] {
 	if sb.err != nil {
@@ -487,7 +487,7 @@ func (sb *Select[T]) SelectSqrt(field, alias string) *Select[T] {
 //
 // Example:
 //
-//	.SelectCast("age", cereal.CastText, "age_str")  // SELECT CAST("age" AS TEXT) AS "age_str"
+//	.SelectCast("age", soy.CastText, "age_str")  // SELECT CAST("age" AS TEXT) AS "age_str"
 func (sb *Select[T]) SelectCast(field string, castType CastType, alias string) *Select[T] {
 	if sb.err != nil {
 		return sb
@@ -811,7 +811,7 @@ func (sb *Select[T]) SelectNullIf(param1, param2, alias string) *Select[T] {
 //
 // Example:
 //
-//	cereal.Select().
+//	soy.Select().
 //	    SelectCase().
 //	        When("status", "=", "status_active", "result_active").
 //	        When("status", "=", "status_pending", "result_pending").
@@ -832,7 +832,7 @@ func (sb *Select[T]) SelectCase() *SelectCaseBuilder[T] {
 //
 // Example:
 //
-//	cereal.Select().
+//	soy.Select().
 //	    SelectRowNumber().
 //	    OrderBy("created_at", "DESC").
 //	    As("row_num").
@@ -986,7 +986,7 @@ func (sb *Select[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("select  has errors: %w", sb.err)
 	}
 
-	result, err := sb.builder.Render(sb.cereal.renderer())
+	result, err := sb.builder.Render(sb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render SELECT query: %w", err)
 	}
@@ -1014,11 +1014,11 @@ func (sb *Select[T]) Instance() *astql.ASTQL {
 //
 // Example:
 //
-//	user, err := cereal.Select().
+//	user, err := soy.Select().
 //	    Where("email", "=", "user_email").
 //	    Exec(ctx, map[string]any{"user_email": "test@example.com"})
 func (sb *Select[T]) Exec(ctx context.Context, params map[string]any) (*T, error) {
-	return sb.exec(ctx, sb.cereal.execer(), params)
+	return sb.exec(ctx, sb.soy.execer(), params)
 }
 
 // ExecTx executes the SELECT query within a transaction and returns a single record of type T.
@@ -1028,7 +1028,7 @@ func (sb *Select[T]) Exec(ctx context.Context, params map[string]any) (*T, error
 //
 //	tx, _ := db.BeginTxx(ctx, nil)
 //	defer tx.Rollback()
-//	user, err := cereal.Select().
+//	user, err := soy.Select().
 //	    Where("email", "=", "user_email").
 //	    ExecTx(ctx, tx, map[string]any{"user_email": "test@example.com"})
 //	tx.Commit()
@@ -1050,7 +1050,7 @@ func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 	}
 
 	// Emit query started event
-	tableName := sb.cereal.getTableName()
+	tableName := sb.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field("SELECT"),
@@ -1154,7 +1154,7 @@ func NotNull(field string) Condition {
 //
 // Example:
 //
-//	cereal.Between("age", "min_age", "max_age")  // age BETWEEN :min_age AND :max_age
+//	soy.Between("age", "min_age", "max_age")  // age BETWEEN :min_age AND :max_age
 func Between(field, lowParam, highParam string) Condition {
 	return Condition{
 		field:     field,
@@ -1170,7 +1170,7 @@ func Between(field, lowParam, highParam string) Condition {
 //
 // Example:
 //
-//	cereal.NotBetween("age", "min_age", "max_age")  // age NOT BETWEEN :min_age AND :max_age
+//	soy.NotBetween("age", "min_age", "max_age")  // age NOT BETWEEN :min_age AND :max_age
 func NotBetween(field, lowParam, highParam string) Condition {
 	return Condition{
 		field:     field,

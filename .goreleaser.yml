@@ -1,10 +1,10 @@
-# GoReleaser configuration for cereal - a Go library for type-safe ORM operations
+# GoReleaser configuration for soy - a Go library for type-safe ORM operations
 # This configuration is optimized for a library package (no binaries in root)
 
 version: 2
 
 # Set project name
-project_name: cereal
+project_name: soy
 
 # Output directory
 dist: .dist
@@ -81,7 +81,7 @@ changelog:
 release:
   github:
     owner: zoobzio
-    name: cereal
+    name: soy
 
   # Release name template
   name_template: "{{ .ProjectName }} v{{ .Version }}"
@@ -97,14 +97,14 @@ release:
 
   # Custom release header
   header: |
-    ## cereal v{{ .Version }}
+    ## soy v{{ .Version }}
 
     Type-safe, query-validated ORM for Go with compile-time schema validation.
 
     ### Installation
 
     ```bash
-    go get github.com/zoobzio/cereal@v{{ .Version }}
+    go get github.com/zoobzio/soy@v{{ .Version }}
     ```
 
     ### Requirements
@@ -115,7 +115,7 @@ release:
   footer: |
     ---
 
-    **Full Documentation:** https://pkg.go.dev/github.com/zoobzio/cereal@v{{ .Version }}
+    **Full Documentation:** https://pkg.go.dev/github.com/zoobzio/soy@v{{ .Version }}
 
     Thanks to all contributors!
 
@@ -125,7 +125,7 @@ announce:
   # Uncomment to enable Discord/Slack/Twitter announcements
   # discord:
   #   enabled: true
-  #   message_template: "cereal {{ .Tag }} has been released! Check it out at {{ .ReleaseURL }}"
+  #   message_template: "soy {{ .Tag }} has been released! Check it out at {{ .ReleaseURL }}"
 
 # Snapshot configuration (for testing)
 snapshot:

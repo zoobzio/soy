@@ -1,7 +1,7 @@
-// Package testing provides test utilities and mocks for cereal-based applications.
+// Package testing provides test utilities and mocks for soy-based applications.
 //
 // This package includes mock database implementations, result builders, and
-// assertion helpers to make testing cereal queries easier and more comprehensive.
+// assertion helpers to make testing soy queries easier and more comprehensive.
 //
 // Example usage:
 //
@@ -11,8 +11,8 @@
 //			WithRows([]MyModel{{ID: 1, Name: "Test"}}).
 //			Times(1)
 //
-//		cereal, _ := cereal.New[MyModel](mock.DB(), "my_table")
-//		results, err := cereal.Query().Exec(ctx, nil)
+//		soy, _ := soy.New[MyModel](mock.DB(), "my_table")
+//		results, err := soy.Query().Exec(ctx, nil)
 //
 //		require.NoError(t, err)
 //		assert.Len(t, results, 1)

@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"

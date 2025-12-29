@@ -38,7 +38,7 @@ jobs:
         # Core library coverage
         echo "=== Testing core library ==="
         go test -v -race -coverprofile=coverage-core.out -covermode=atomic \
-          -coverpkg=github.com/zoobzio/cereal $(go list ./...)
+          -coverpkg=github.com/zoobzio/soy $(go list ./...)
 
         # Generate coverage report
         go tool cover -func=coverage-core.out > coverage-summary.txt
@@ -73,7 +73,7 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage-core.out
         flags: unit
-        name: cereal-coverage
+        name: soy-coverage
         fail_ci_if_error: false
         verbose: true
 
@@ -191,7 +191,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "#### Coverage Reports" >> $GITHUB_STEP_SUMMARY
         echo "- 📄 [HTML Report](coverage-core.html) - Download from artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- 📊 [Codecov Dashboard](https://codecov.io/gh/zoobzio/cereal) - View online" >> $GITHUB_STEP_SUMMARY
+        echo "- 📊 [Codecov Dashboard](https://codecov.io/gh/zoobzio/soy) - View online" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "#### Coverage Standards" >> $GITHUB_STEP_SUMMARY
         echo "- 🎯 Target: 70% overall, 80% for new code" >> $GITHUB_STEP_SUMMARY

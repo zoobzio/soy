@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"testing"
@@ -8,8 +8,8 @@ import (
 	"github.com/zoobzio/sentinel"
 )
 
-// Test model for cereal tests.
-type cerealTestUser struct {
+// Test model for soy tests.
+type soyTestUser struct {
 	ID    int    `db:"id" type:"integer" constraints:"primarykey"`
 	Email string `db:"email" type:"text" constraints:"notnull,unique"`
 	Name  string `db:"name" type:"text"`
@@ -22,32 +22,32 @@ func TestNew_Success(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	if cereal == nil {
+	if soy == nil {
 		t.Fatal("New() returned nil")
 	}
 
-	if cereal.tableName != "users" {
-		t.Errorf("tableName = %q, want %q", cereal.tableName, "users")
+	if soy.tableName != "users" {
+		t.Errorf("tableName = %q, want %q", soy.tableName, "users")
 	}
 
-	if cereal.db != db {
+	if soy.db != db {
 		t.Error("db connection not set correctly")
 	}
 
-	if cereal.instance == nil {
+	if soy.instance == nil {
 		t.Error("ASTQL instance not initialized")
 	}
 }
 
 func TestNew_EmptyTableName(t *testing.T) {
 	db := &sqlx.DB{}
-	_, err := New[cerealTestUser](db, "", postgres.New())
+	_, err := New[soyTestUser](db, "", postgres.New())
 
 	if err == nil {
 		t.Error("New() should error with empty table name")
@@ -56,7 +56,7 @@ func TestNew_EmptyTableName(t *testing.T) {
 
 func TestNew_NilRenderer(t *testing.T) {
 	db := &sqlx.DB{}
-	_, err := New[cerealTestUser](db, "users", nil)
+	_, err := New[soyTestUser](db, "users", nil)
 
 	if err == nil {
 		t.Error("New() should error with nil renderer")
@@ -68,50 +68,50 @@ func TestNew_NilDB(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	cereal, err := New[cerealTestUser](nil, "users", postgres.New())
+	soy, err := New[soyTestUser](nil, "users", postgres.New())
 
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	if cereal == nil {
+	if soy == nil {
 		t.Fatal("New() should allow nil DB for query building only")
 	}
 
-	if cereal.db != nil {
+	if soy.db != nil {
 		t.Error("db should be nil")
 	}
 }
 
-func TestCereal_TableName(t *testing.T) {
+func TestSoy_TableName(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tableName := cereal.TableName()
+	tableName := soy.TableName()
 	if tableName != "users" {
 		t.Errorf("TableName() = %q, want %q", tableName, "users")
 	}
 }
 
-func TestCereal_Metadata(t *testing.T) {
+func TestSoy_Metadata(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	metadata := cereal.Metadata()
+	metadata := soy.Metadata()
 	if len(metadata.Fields) == 0 {
 		t.Error("Metadata() returned empty fields")
 	}
@@ -133,18 +133,18 @@ func TestCereal_Metadata(t *testing.T) {
 	}
 }
 
-func TestCereal_Instance(t *testing.T) {
+func TestSoy_Instance(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	instance := cereal.Instance()
+	instance := soy.Instance()
 	if instance == nil {
 		t.Fatal("Instance() returned nil")
 	}
@@ -156,65 +156,65 @@ func TestCereal_Instance(t *testing.T) {
 	}
 }
 
-func TestCereal_Select(t *testing.T) {
+func TestSoy_Select(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	sel := cereal.Select()
+	sel := soy.Select()
 	if sel == nil {
 		t.Fatal("Select() returned nil")
 	}
 
-	if sel.instance != cereal.instance {
+	if sel.instance != soy.instance {
 		t.Error("Select() instance mismatch")
 	}
 }
 
-func TestCereal_Query(t *testing.T) {
+func TestSoy_Query(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	query := cereal.Query()
+	query := soy.Query()
 	if query == nil {
 		t.Fatal("Query() returned nil")
 	}
 
-	if query.instance != cereal.instance {
+	if query.instance != soy.instance {
 		t.Error("Query() instance mismatch")
 	}
 }
 
-func TestCereal_Insert(t *testing.T) {
+func TestSoy_Insert(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	insert := cereal.Insert()
+	insert := soy.Insert()
 	if insert == nil {
 		t.Fatal("Insert() returned nil")
 	}
 
-	if insert.instance != cereal.instance {
+	if insert.instance != soy.instance {
 		t.Error("Insert() instance mismatch")
 	}
 
@@ -229,68 +229,68 @@ func TestCereal_Insert(t *testing.T) {
 	}
 }
 
-func TestCereal_Modify(t *testing.T) {
+func TestSoy_Modify(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	modify := cereal.Modify()
+	modify := soy.Modify()
 	if modify == nil {
 		t.Fatal("Modify() returned nil")
 	}
 
-	if modify.instance != cereal.instance {
+	if modify.instance != soy.instance {
 		t.Error("Modify() instance mismatch")
 	}
 }
 
-func TestCereal_Remove(t *testing.T) {
+func TestSoy_Remove(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	remove := cereal.Remove()
+	remove := soy.Remove()
 	if remove == nil {
 		t.Fatal("Remove() returned nil")
 	}
 
-	if remove.instance != cereal.instance {
+	if remove.instance != soy.instance {
 		t.Error("Remove() instance mismatch")
 	}
 }
 
-func TestCereal_Aggregates(t *testing.T) {
+func TestSoy_Aggregates(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	tests := []struct {
 		name string
-		agg  *Aggregate[cerealTestUser]
+		agg  *Aggregate[soyTestUser]
 	}{
-		{"Count", cereal.Count()},
-		{"Sum", cereal.Sum("age")},
-		{"Avg", cereal.Avg("age")},
-		{"Min", cereal.Min("age")},
-		{"Max", cereal.Max("age")},
+		{"Count", soy.Count()},
+		{"Sum", soy.Sum("age")},
+		{"Avg", soy.Avg("age")},
+		{"Min", soy.Min("age")},
+		{"Max", soy.Max("age")},
 	}
 
 	for _, tt := range tests {
@@ -299,7 +299,7 @@ func TestCereal_Aggregates(t *testing.T) {
 				t.Fatalf("%s() returned nil", tt.name)
 			}
 
-			if tt.agg.agg.instance != cereal.instance {
+			if tt.agg.agg.instance != soy.instance {
 				t.Errorf("%s() instance mismatch", tt.name)
 			}
 
@@ -312,18 +312,18 @@ func TestCereal_Aggregates(t *testing.T) {
 	}
 }
 
-func TestCereal_Aggregate_InvalidField(t *testing.T) {
+func TestSoy_Aggregate_InvalidField(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[cerealTestUser](db, "users", postgres.New())
+	soy, err := New[soyTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	agg := cereal.Sum("nonexistent_field")
+	agg := soy.Sum("nonexistent_field")
 	if agg == nil {
 		t.Fatal("Sum() returned nil")
 	}
@@ -335,7 +335,7 @@ func TestCereal_Aggregate_InvalidField(t *testing.T) {
 	}
 }
 
-func TestCereal_Contains(t *testing.T) {
+func TestSoy_Contains(t *testing.T) {
 	tests := []struct {
 		name   string
 		s      string

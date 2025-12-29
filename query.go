@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 type Query[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.Builder
-	cereal   cerealExecutor // interface for execution
-	err      error          // stores first error encountered during building
+	soy      soyExecutor // interface for execution
+	err      error       // stores first error encountered during building
 }
 
 // Fields specifies which fields to select. If not called, selects all fields (*).
@@ -23,7 +23,7 @@ type Query[T any] struct {
 //
 // Example:
 //
-//	cereal.Query().
+//	soy.Query().
 //	    Fields("id", "email", "name").
 //	    Where("age", ">=", "min_age").
 //	    Exec(ctx, params)
@@ -54,8 +54,8 @@ func (qb *Query[T]) Where(field, operator, param string) *Query[T] {
 // Example:
 //
 //	.WhereAnd(
-//	    cereal.C("age", ">=", "min_age"),
-//	    cereal.C("status", "=", "active"),
+//	    soy.C("age", ">=", "min_age"),
+//	    soy.C("status", "=", "active"),
 //	)
 func (qb *Query[T]) WhereAnd(conditions ...Condition) *Query[T] {
 	if qb.err != nil {
@@ -70,8 +70,8 @@ func (qb *Query[T]) WhereAnd(conditions ...Condition) *Query[T] {
 // Example:
 //
 //	.WhereOr(
-//	    cereal.C("status", "=", "active"),
-//	    cereal.C("status", "=", "pending"),
+//	    soy.C("status", "=", "active"),
+//	    soy.C("status", "=", "pending"),
 //	)
 func (qb *Query[T]) WhereOr(conditions ...Condition) *Query[T] {
 	if qb.err != nil {
@@ -483,7 +483,7 @@ func (qb *Query[T]) SelectSqrt(field, alias string) *Query[T] {
 //
 // Example:
 //
-//	.SelectCast("age", cereal.CastText, "age_str")  // SELECT CAST("age" AS TEXT) AS "age_str"
+//	.SelectCast("age", soy.CastText, "age_str")  // SELECT CAST("age" AS TEXT) AS "age_str"
 func (qb *Query[T]) SelectCast(field string, castType CastType, alias string) *Query[T] {
 	if qb.err != nil {
 		return qb
@@ -807,7 +807,7 @@ func (qb *Query[T]) SelectNullIf(param1, param2, alias string) *Query[T] {
 //
 // Example:
 //
-//	cereal.Query().
+//	soy.Query().
 //	    SelectCase().
 //	        When("status", "=", "status_active", "result_active").
 //	        When("status", "=", "status_pending", "result_pending").
@@ -828,7 +828,7 @@ func (qb *Query[T]) SelectCase() *QueryCaseBuilder[T] {
 //
 // Example:
 //
-//	cereal.Query().
+//	soy.Query().
 //	    SelectRowNumber().
 //	    OrderBy("created_at", "DESC").
 //	    As("row_num").
@@ -980,13 +980,13 @@ func (qb *Query[T]) SelectMaxOver(field string) *QueryWindowBuilder[T] {
 // Example:
 //
 //	params := map[string]any{"min_age": 18, "status": "active"}
-//	users, err := cereal.Query().
+//	users, err := soy.Query().
 //	    Where("age", ">=", "min_age").
 //	    Where("status", "=", "status").
 //	    OrderBy("name", "ASC").
 //	    Exec(ctx, params)
 func (qb *Query[T]) Exec(ctx context.Context, params map[string]any) ([]*T, error) {
-	return qb.exec(ctx, qb.cereal.execer(), params)
+	return qb.exec(ctx, qb.soy.execer(), params)
 }
 
 // ExecTx executes the SELECT query within a transaction.
@@ -996,7 +996,7 @@ func (qb *Query[T]) Exec(ctx context.Context, params map[string]any) ([]*T, erro
 //
 //	tx, _ := db.BeginTxx(ctx, nil)
 //	defer tx.Rollback()
-//	users, err := cereal.Query().
+//	users, err := soy.Query().
 //	    Where("age", ">=", "min_age").
 //	    ExecTx(ctx, tx, params)
 //	tx.Commit()
@@ -1010,12 +1010,12 @@ func (qb *Query[T]) exec(ctx context.Context, execer sqlx.ExtContext, params map
 		return nil, fmt.Errorf("query has errors: %w", qb.err)
 	}
 
-	result, err := qb.builder.Render(qb.cereal.renderer())
+	result, err := qb.builder.Render(qb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render SELECT query: %w", err)
 	}
 
-	return execMultipleRows[T](ctx, execer, result.SQL, params, qb.cereal.getTableName(), "QUERY")
+	return execMultipleRows[T](ctx, execer, result.SQL, params, qb.soy.getTableName(), "QUERY")
 }
 
 // Render builds and renders the query to SQL with parameter placeholders.
@@ -1027,7 +1027,7 @@ func (qb *Query[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("query  has errors: %w", qb.err)
 	}
 
-	result, err := qb.builder.Render(qb.cereal.renderer())
+	result, err := qb.builder.Render(qb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render SELECT query: %w", err)
 	}
@@ -1055,23 +1055,23 @@ func (qb *Query[T]) Instance() *astql.ASTQL {
 //
 // Example:
 //
-//	results, err := cereal.Query().
+//	results, err := soy.Query().
 //	    Where("status", "=", "active").
-//	    Union(cereal.Query().Where("status", "=", "pending")).
+//	    Union(soy.Query().Where("status", "=", "pending")).
 //	    OrderBy("name", "asc").
 //	    Exec(ctx, params)
 func (qb *Query[T]) Union(other *Query[T]) *Compound[T] {
 	if qb.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      qb.err,
 		}
 	}
 	if other.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      other.err,
 		}
 	}
@@ -1079,7 +1079,7 @@ func (qb *Query[T]) Union(other *Query[T]) *Compound[T] {
 	return &Compound[T]{
 		instance: qb.instance,
 		builder:  qb.builder.Union(other.builder),
-		cereal:   qb.cereal,
+		soy:      qb.soy,
 	}
 }
 
@@ -1089,14 +1089,14 @@ func (qb *Query[T]) UnionAll(other *Query[T]) *Compound[T] {
 	if qb.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      qb.err,
 		}
 	}
 	if other.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      other.err,
 		}
 	}
@@ -1104,7 +1104,7 @@ func (qb *Query[T]) UnionAll(other *Query[T]) *Compound[T] {
 	return &Compound[T]{
 		instance: qb.instance,
 		builder:  qb.builder.UnionAll(other.builder),
-		cereal:   qb.cereal,
+		soy:      qb.soy,
 	}
 }
 
@@ -1114,14 +1114,14 @@ func (qb *Query[T]) Intersect(other *Query[T]) *Compound[T] {
 	if qb.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      qb.err,
 		}
 	}
 	if other.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      other.err,
 		}
 	}
@@ -1129,7 +1129,7 @@ func (qb *Query[T]) Intersect(other *Query[T]) *Compound[T] {
 	return &Compound[T]{
 		instance: qb.instance,
 		builder:  qb.builder.Intersect(other.builder),
-		cereal:   qb.cereal,
+		soy:      qb.soy,
 	}
 }
 
@@ -1139,14 +1139,14 @@ func (qb *Query[T]) IntersectAll(other *Query[T]) *Compound[T] {
 	if qb.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      qb.err,
 		}
 	}
 	if other.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      other.err,
 		}
 	}
@@ -1154,7 +1154,7 @@ func (qb *Query[T]) IntersectAll(other *Query[T]) *Compound[T] {
 	return &Compound[T]{
 		instance: qb.instance,
 		builder:  qb.builder.IntersectAll(other.builder),
-		cereal:   qb.cereal,
+		soy:      qb.soy,
 	}
 }
 
@@ -1164,14 +1164,14 @@ func (qb *Query[T]) Except(other *Query[T]) *Compound[T] {
 	if qb.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      qb.err,
 		}
 	}
 	if other.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      other.err,
 		}
 	}
@@ -1179,7 +1179,7 @@ func (qb *Query[T]) Except(other *Query[T]) *Compound[T] {
 	return &Compound[T]{
 		instance: qb.instance,
 		builder:  qb.builder.Except(other.builder),
-		cereal:   qb.cereal,
+		soy:      qb.soy,
 	}
 }
 
@@ -1189,14 +1189,14 @@ func (qb *Query[T]) ExceptAll(other *Query[T]) *Compound[T] {
 	if qb.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      qb.err,
 		}
 	}
 	if other.err != nil {
 		return &Compound[T]{
 			instance: qb.instance,
-			cereal:   qb.cereal,
+			soy:      qb.soy,
 			err:      other.err,
 		}
 	}
@@ -1204,6 +1204,6 @@ func (qb *Query[T]) ExceptAll(other *Query[T]) *Compound[T] {
 	return &Compound[T]{
 		instance: qb.instance,
 		builder:  qb.builder.ExceptAll(other.builder),
-		cereal:   qb.cereal,
+		soy:      qb.soy,
 	}
 }

@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 type Create[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.Builder
-	cereal   cerealExecutor // interface for execution
-	err      error          // stores first error encountered during building
+	soy      soyExecutor // interface for execution
+	err      error       // stores first error encountered during building
 }
 
 // OnConflict adds an ON CONFLICT clause for handling unique constraint violations.
@@ -25,7 +25,7 @@ type Create[T any] struct {
 //
 // Example:
 //
-//	cereal.Insert().
+//	soy.Insert().
 //	    OnConflict("email").
 //	    DoNothing().
 //	    Exec(ctx, &user)
@@ -63,9 +63,9 @@ func (cb *Create[T]) OnConflict(columns ...string) *Conflict[T] {
 // Example:
 //
 //	user := &User{Email: "test@example.com", Name: "Test"}
-//	inserted, err := cereal.Insert().Exec(ctx, user)
+//	inserted, err := soy.Insert().Exec(ctx, user)
 func (cb *Create[T]) Exec(ctx context.Context, record *T) (*T, error) {
-	return cb.exec(ctx, cb.cereal.execer(), record)
+	return cb.exec(ctx, cb.soy.execer(), record)
 }
 
 // ExecTx executes the INSERT query within a transaction.
@@ -82,9 +82,9 @@ func (cb *Create[T]) ExecTx(ctx context.Context, tx *sqlx.Tx, record *T) (*T, er
 //	    {Email: "user1@example.com", Name: "User 1"},
 //	    {Email: "user2@example.com", Name: "User 2"},
 //	}
-//	count, err := cereal.Insert().ExecBatch(ctx, users)
+//	count, err := soy.Insert().ExecBatch(ctx, users)
 func (cb *Create[T]) ExecBatch(ctx context.Context, records []*T) (int64, error) {
-	return cb.execBatch(ctx, cb.cereal.execer(), records)
+	return cb.execBatch(ctx, cb.soy.execer(), records)
 }
 
 // ExecBatchTx executes the INSERT query for multiple records within a transaction.
@@ -94,7 +94,7 @@ func (cb *Create[T]) ExecBatch(ctx context.Context, records []*T) (int64, error)
 //
 //	tx, _ := db.BeginTxx(ctx, nil)
 //	defer tx.Rollback()
-//	count, err := cereal.Insert().ExecBatchTx(ctx, tx, users)
+//	count, err := soy.Insert().ExecBatchTx(ctx, tx, users)
 //	tx.Commit()
 func (cb *Create[T]) ExecBatchTx(ctx context.Context, tx *sqlx.Tx, records []*T) (int64, error) {
 	return cb.execBatch(ctx, tx, records)
@@ -112,13 +112,13 @@ func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, reco
 	}
 
 	// Render the query once
-	result, err := cb.builder.Render(cb.cereal.renderer())
+	result, err := cb.builder.Render(cb.soy.renderer())
 	if err != nil {
 		return 0, fmt.Errorf("failed to render INSERT query: %w", err)
 	}
 
 	// Emit query started event
-	tableName := cb.cereal.getTableName()
+	tableName := cb.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field("INSERT_BATCH"),
@@ -175,13 +175,13 @@ func (cb *Create[T]) exec(ctx context.Context, execer sqlx.ExtContext, record *T
 	}
 
 	// Render the query
-	result, err := cb.builder.Render(cb.cereal.renderer())
+	result, err := cb.builder.Render(cb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render INSERT query: %w", err)
 	}
 
 	// Emit query started event
-	tableName := cb.cereal.getTableName()
+	tableName := cb.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field("INSERT"),
@@ -249,7 +249,7 @@ func (cb *Create[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("create  has errors: %w", cb.err)
 	}
 
-	result, err := cb.builder.Render(cb.cereal.renderer())
+	result, err := cb.builder.Render(cb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render INSERT query: %w", err)
 	}
@@ -283,7 +283,7 @@ type Conflict[T any] struct {
 //
 // Example:
 //
-//	cereal.Insert().
+//	soy.Insert().
 //	    OnConflict("email").
 //	    DoNothing().
 //	    Exec(ctx, &user)
@@ -297,7 +297,7 @@ func (cfb *Conflict[T]) DoNothing() *Create[T] {
 //
 // Example:
 //
-//	cereal.Insert().
+//	soy.Insert().
 //	    OnConflict("email").
 //	    DoUpdate().
 //	    Set("name", "updated_name").

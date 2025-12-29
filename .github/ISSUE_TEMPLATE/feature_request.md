@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for cereal
+about: Suggest an idea for soy
 title: '[FEATURE] '
 labels: 'enhancement'
 assignees: ''
@@ -24,7 +24,7 @@ type User struct {
     Name string `db:"name" type:"text"`
 }
 
-c, _ := cereal.New[User](db, "users")
+c, _ := soy.New[User](db, "users")
 
 // Your proposed usage
 ```

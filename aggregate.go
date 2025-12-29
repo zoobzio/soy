@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -15,18 +15,18 @@ import (
 type aggregateBuilder[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.Builder
-	cereal   cerealExecutor
+	soy      soyExecutor
 	field    string // field to aggregate (empty for COUNT(*))
 	funcName string // aggregate function name (AVG, MIN, MAX, SUM, COUNT)
 	err      error
 }
 
 // newAggregateBuilder creates a new aggregate builder helper.
-func newAggregateBuilder[T any](instance *astql.ASTQL, builder *astql.Builder, cereal cerealExecutor, field, funcName string) *aggregateBuilder[T] {
+func newAggregateBuilder[T any](instance *astql.ASTQL, builder *astql.Builder, soy soyExecutor, field, funcName string) *aggregateBuilder[T] {
 	return &aggregateBuilder[T]{
 		instance: instance,
 		builder:  builder,
-		cereal:   cereal,
+		soy:      soy,
 		field:    field,
 		funcName: funcName,
 	}
@@ -139,13 +139,13 @@ func (ab *aggregateBuilder[T]) exec(ctx context.Context, execer sqlx.ExtContext,
 	}
 
 	// Render the query
-	result, err := ab.builder.Render(ab.cereal.renderer())
+	result, err := ab.builder.Render(ab.soy.renderer())
 	if err != nil {
 		return 0, fmt.Errorf("failed to render %s query: %w", ab.funcName, err)
 	}
 
 	// Emit query started event
-	tableName := ab.cereal.getTableName()
+	tableName := ab.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field(ab.funcName),
@@ -221,7 +221,7 @@ func (ab *aggregateBuilder[T]) render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("%s builder has errors: %w", ab.funcName, ab.err)
 	}
 
-	result, err := ab.builder.Render(ab.cereal.renderer())
+	result, err := ab.builder.Render(ab.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render %s query: %w", ab.funcName, err)
 	}
@@ -257,8 +257,8 @@ func (ab *Aggregate[T]) Where(field, operator, param string) *Aggregate[T] {
 // Example:
 //
 //	.WhereAnd(
-//	    cereal.C("status", "=", "active"),
-//	    cereal.C("age", ">", "min_age"),
+//	    soy.C("status", "=", "active"),
+//	    soy.C("age", ">", "min_age"),
 //	)
 func (ab *Aggregate[T]) WhereAnd(conditions ...Condition) *Aggregate[T] {
 	if ab.agg.err != nil {
@@ -276,8 +276,8 @@ func (ab *Aggregate[T]) WhereAnd(conditions ...Condition) *Aggregate[T] {
 // Example:
 //
 //	.WhereOr(
-//	    cereal.C("status", "=", "active"),
-//	    cereal.C("status", "=", "pending"),
+//	    soy.C("status", "=", "active"),
+//	    soy.C("status", "=", "pending"),
 //	)
 func (ab *Aggregate[T]) WhereOr(conditions ...Condition) *Aggregate[T] {
 	if ab.agg.err != nil {
@@ -374,11 +374,11 @@ func (ab *Aggregate[T]) WhereFields(leftField, operator, rightField string) *Agg
 // Example:
 //
 //	params := map[string]any{"status": "active"}
-//	result, err := cereal.Avg("age").
+//	result, err := soy.Avg("age").
 //	    Where("status", "=", "status").
 //	    Exec(ctx, params)
 func (ab *Aggregate[T]) Exec(ctx context.Context, params map[string]any) (float64, error) {
-	return ab.agg.exec(ctx, ab.agg.cereal.execer(), params)
+	return ab.agg.exec(ctx, ab.agg.soy.execer(), params)
 }
 
 // ExecTx executes the aggregate query within a transaction.
@@ -388,7 +388,7 @@ func (ab *Aggregate[T]) Exec(ctx context.Context, params map[string]any) (float6
 //
 //	tx, _ := db.BeginTxx(ctx, nil)
 //	defer tx.Rollback()
-//	result, err := cereal.Avg("age").
+//	result, err := soy.Avg("age").
 //	    Where("status", "=", "status").
 //	    ExecTx(ctx, tx, params)
 //	tx.Commit()

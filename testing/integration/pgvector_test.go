@@ -10,7 +10,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 	astqlpg "github.com/zoobzio/astql/pkg/postgres"
-	"github.com/zoobzio/cereal"
+	"github.com/zoobzio/soy"
 )
 
 // TestVectorWithPgvector is a model for pgvector tests.
@@ -92,7 +92,7 @@ func TestPgvector_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createVectorTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestVectorWithPgvector](tdb.db, "test_vectors", astqlpg.New())
+	c, err := soy.New[TestVectorWithPgvector](tdb.db, "test_vectors", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestPgvector_Integration(t *testing.T) {
 	t.Run("insert vectors", func(t *testing.T) {
 		truncateVectorTestTable(t, tdb.db)
 
-		// Insert vectors directly using raw SQL since cereal may not handle vector syntax
+		// Insert vectors directly using raw SQL since soy may not handle vector syntax
 		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('origin', '[0,0,0]'),
 			('unit_x', '[1,0,0]'),

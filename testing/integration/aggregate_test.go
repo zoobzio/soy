@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/zoobzio/astql/pkg/postgres"
-	"github.com/zoobzio/cereal"
+	"github.com/zoobzio/soy"
 )
 
 func TestAggregates_Integration(t *testing.T) {
@@ -13,7 +13,7 @@ func TestAggregates_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

@@ -1,4 +1,4 @@
-# Codecov configuration for cereal
+# Codecov configuration for soy
 # Documentation: https://docs.codecov.io/docs/codecov-yaml
 
 # Repository configuration
@@ -87,7 +87,7 @@ component_management:
     - component_id: core
       name: Core Library
       paths:
-        - "cereal.go"
+        - "soy.go"
         - "!*_test.go"
 
     - component_id: query-builders

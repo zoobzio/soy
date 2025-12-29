@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -30,13 +30,13 @@ func TestQuery_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SELECT all with WHERE", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			Render()
 		if err != nil {
@@ -66,7 +66,7 @@ func TestQuery_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT specific fields", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("id", "email", "name").
 			Where("age", ">=", "min_age").
 			Render()
@@ -88,7 +88,7 @@ func TestQuery_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with multiple WHERE (AND)", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			Where("age", "<=", "max_age").
 			Render()
@@ -105,7 +105,7 @@ func TestQuery_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -124,7 +124,7 @@ func TestQuery_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereOr", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -143,7 +143,7 @@ func TestQuery_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereNull", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereNull("age").
 			Render()
 		if err != nil {
@@ -158,7 +158,7 @@ func TestQuery_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -180,13 +180,13 @@ func TestQuery_OrderBy(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("ORDER BY single field ASC", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			OrderBy("name", "ASC").
 			Render()
@@ -208,7 +208,7 @@ func TestQuery_OrderBy(t *testing.T) {
 	})
 
 	t.Run("ORDER BY single field DESC", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			OrderBy("age", "DESC").
 			Render()
@@ -227,7 +227,7 @@ func TestQuery_OrderBy(t *testing.T) {
 	})
 
 	t.Run("ORDER BY multiple fields", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			OrderBy("age", "DESC").
 			OrderBy("name", "ASC").
@@ -257,13 +257,13 @@ func TestQuery_OrderByExpr(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestDocument](db, "documents", postgres.New())
+	soy, err := New[queryTestDocument](db, "documents", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("ORDER BY vector L2 distance", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereNotNull("embedding").
 			OrderByExpr("embedding", "<->", "query_embedding", "ASC").
 			Limit(10).
@@ -285,7 +285,7 @@ func TestQuery_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("ORDER BY vector cosine distance", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			OrderByExpr("embedding", "<=>", "query", "ASC").
 			Limit(5).
 			Render()
@@ -301,7 +301,7 @@ func TestQuery_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("invalid operator", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByExpr("embedding", "INVALID", "query", "ASC").
 			Render()
 		if err == nil {
@@ -310,7 +310,7 @@ func TestQuery_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("invalid direction", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByExpr("embedding", "<->", "query", "INVALID").
 			Render()
 		if err == nil {
@@ -326,13 +326,13 @@ func TestQuery_WhereIn(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("WHERE IN", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("id", "IN", "ids").
 			Render()
 		if err != nil {
@@ -349,7 +349,7 @@ func TestQuery_WhereIn(t *testing.T) {
 	})
 
 	t.Run("WHERE NOT IN", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("id", "NOT IN", "excluded_ids").
 			Render()
 		if err != nil {
@@ -372,13 +372,13 @@ func TestQuery_Pagination(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("LIMIT only", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			Limit(10).
 			Render()
@@ -397,7 +397,7 @@ func TestQuery_Pagination(t *testing.T) {
 	})
 
 	t.Run("OFFSET only", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			Offset(20).
 			Render()
@@ -416,7 +416,7 @@ func TestQuery_Pagination(t *testing.T) {
 	})
 
 	t.Run("LIMIT and OFFSET (pagination)", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			OrderBy("name", "ASC").
 			Limit(10).
@@ -437,7 +437,7 @@ func TestQuery_Pagination(t *testing.T) {
 	})
 
 	t.Run("LimitParam only", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			LimitParam("page_size").
 			Render()
@@ -456,7 +456,7 @@ func TestQuery_Pagination(t *testing.T) {
 	})
 
 	t.Run("OffsetParam only", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			OffsetParam("page_offset").
 			Render()
@@ -475,7 +475,7 @@ func TestQuery_Pagination(t *testing.T) {
 	})
 
 	t.Run("LimitParam and OffsetParam (parameterized pagination)", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			OrderBy("name", "ASC").
 			LimitParam("page_size").
@@ -496,7 +496,7 @@ func TestQuery_Pagination(t *testing.T) {
 	})
 
 	t.Run("Mixed static and parameterized pagination", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("age", ">=", "min_age").
 			Limit(10).
 			OffsetParam("page_offset").
@@ -523,13 +523,13 @@ func TestQuery_ComplexQueries(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("full featured query", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("id", "email", "name", "age").
 			WhereAnd(
 				C("age", ">=", "min_age"),
@@ -582,12 +582,12 @@ func TestQuery_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	builder := cereal.Query()
+	builder := soy.Query()
 	instance := builder.Instance()
 
 	if instance == nil {
@@ -607,13 +607,13 @@ func TestQuery_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("successful MustRender", func(t *testing.T) {
-		result := cereal.Query().
+		result := soy.Query().
 			Where("age", ">=", "min_age").
 			MustRender()
 		if result == nil {
@@ -630,7 +630,7 @@ func TestQuery_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid field")
 			}
 		}()
-		cereal.Query().
+		soy.Query().
 			Where("nonexistent_field", "=", "value").
 			MustRender()
 	})
@@ -641,7 +641,7 @@ func TestQuery_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid field")
 			}
 		}()
-		cereal.Query().
+		soy.Query().
 			Fields("nonexistent_field").
 			Where("id", "=", "user_id").
 			MustRender()
@@ -653,7 +653,7 @@ func TestQuery_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid operator")
 			}
 		}()
-		cereal.Query().
+		soy.Query().
 			Where("id", "INVALID", "user_id").
 			MustRender()
 	})
@@ -664,7 +664,7 @@ func TestQuery_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid direction")
 			}
 		}()
-		cereal.Query().
+		soy.Query().
 			Where("age", ">=", "min_age").
 			OrderBy("age", "INVALID").
 			MustRender()
@@ -677,7 +677,7 @@ func TestQuery_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -685,7 +685,7 @@ func TestQuery_Validation(t *testing.T) {
 	t.Run("all supported operators in WHERE", func(t *testing.T) {
 		operators := []string{"=", "!=", ">", ">=", "<", "<="}
 		for _, op := range operators {
-			result, err := cereal.Query().
+			result, err := soy.Query().
 				Where("age", op, "value").
 				Render()
 			if err != nil {
@@ -700,7 +700,7 @@ func TestQuery_Validation(t *testing.T) {
 	t.Run("all supported directions in OrderBy", func(t *testing.T) {
 		directions := []string{"ASC", "DESC", "asc", "desc"}
 		for _, dir := range directions {
-			result, err := cereal.Query().
+			result, err := soy.Query().
 				Where("age", ">=", "min_age").
 				OrderBy("name", dir).
 				Render()
@@ -720,13 +720,13 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("invalid field in Fields returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			Fields("nonexistent").
 			Render()
 		if err == nil {
@@ -735,7 +735,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Where field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			Where("nonexistent", "=", "value").
 			Render()
 		if err == nil {
@@ -744,7 +744,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Where param returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			Where("id", "=", "").
 			Render()
 		if err == nil {
@@ -753,7 +753,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereAnd field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereAnd(C("nonexistent", "=", "value")).
 			Render()
 		if err == nil {
@@ -762,7 +762,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereOr field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereOr(C("nonexistent", "=", "value")).
 			Render()
 		if err == nil {
@@ -771,7 +771,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereNull field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereNull("nonexistent").
 			Render()
 		if err == nil {
@@ -780,7 +780,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereNotNull field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereNotNull("nonexistent").
 			Render()
 		if err == nil {
@@ -789,7 +789,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid OrderBy field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderBy("nonexistent", "asc").
 			Render()
 		if err == nil {
@@ -798,7 +798,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid OrderByExpr field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByExpr("nonexistent", "<->", "query_value", "asc").
 			Render()
 		if err == nil {
@@ -807,7 +807,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid OrderByExpr param returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByExpr("id", "<->", "", "asc").
 			Render()
 		if err == nil {
@@ -816,7 +816,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("error propagates through chain", func(t *testing.T) {
-		builder := cereal.Query().
+		builder := soy.Query().
 			Fields("bad_field").
 			Where("id", "=", "user_id")
 		_, err := builder.Render()
@@ -826,7 +826,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereAnd().
 			Where("id", "=", "user_id").
 			Render()
@@ -839,7 +839,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereOr is ignored", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereOr().
 			Where("id", "=", "user_id").
 			Render()
@@ -852,7 +852,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("Null condition in WhereAnd", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereAnd(Null("age")).
 			Render()
 		if err != nil {
@@ -864,7 +864,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereOr(NotNull("age")).
 			Render()
 		if err != nil {
@@ -876,7 +876,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid operator in condition returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereAnd(C("age", "INVALID", "value")).
 			Render()
 		if err == nil {
@@ -885,7 +885,7 @@ func TestQuery_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid param in condition returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereAnd(C("age", "=", "")).
 			Render()
 		if err == nil {
@@ -900,13 +900,13 @@ func TestQuery_HavingClauses(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("simple Having", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("age").
 			GroupBy("age").
 			Having("age", ">", "min_age").
@@ -920,7 +920,7 @@ func TestQuery_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("HavingAgg COUNT", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("age").
 			GroupBy("age").
 			HavingAgg("COUNT", "", ">", "min_count").
@@ -937,7 +937,7 @@ func TestQuery_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("HavingAgg SUM", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("name").
 			GroupBy("name").
 			HavingAgg("SUM", "age", ">=", "threshold").
@@ -951,7 +951,7 @@ func TestQuery_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("Having with invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			Fields("age").
 			GroupBy("age").
 			Having("invalid_field", ">", "value").
@@ -968,13 +968,13 @@ func TestQuery_WhereNullEdgeCases(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("WhereNull on invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereNull("invalid_field").
 			Render()
 		if err == nil {
@@ -983,7 +983,7 @@ func TestQuery_WhereNullEdgeCases(t *testing.T) {
 	})
 
 	t.Run("WhereNotNull on invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereNotNull("invalid_field").
 			Render()
 		if err == nil {
@@ -992,7 +992,7 @@ func TestQuery_WhereNullEdgeCases(t *testing.T) {
 	})
 
 	t.Run("WhereNull combined with other conditions", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("name", "=", "name_param").
 			WhereNull("age").
 			Render()
@@ -1008,7 +1008,7 @@ func TestQuery_WhereNullEdgeCases(t *testing.T) {
 	})
 
 	t.Run("WhereNotNull combined with other conditions", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("name", "=", "name_param").
 			WhereNotNull("email").
 			Render()
@@ -1026,13 +1026,13 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	sentinel.Tag("query")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("RowNumber with OrderBy", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("id", "name").
 			SelectRowNumber().
 			OrderBy("age", "DESC").
@@ -1052,7 +1052,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Rank with PartitionBy and OrderBy", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("id", "name").
 			SelectRank().
 			PartitionBy("name").
@@ -1073,7 +1073,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("DenseRank", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectDenseRank().
 			OrderBy("age", "ASC").
 			As("dense_rank").
@@ -1089,7 +1089,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Lag", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectLag("age", "offset_val").
 			OrderBy("id", "ASC").
 			As("prev_age").
@@ -1105,7 +1105,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Lead", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectLead("age", "offset_val").
 			OrderBy("id", "ASC").
 			As("next_age").
@@ -1121,7 +1121,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("FirstValue", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectFirstValue("age").
 			OrderBy("id", "ASC").
 			As("first_age").
@@ -1137,7 +1137,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("LastValue", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectLastValue("age").
 			OrderBy("id", "ASC").
 			As("last_age").
@@ -1153,7 +1153,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("SumOver with PartitionBy", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectSumOver("age").
 			PartitionBy("name").
 			As("running_total").
@@ -1172,7 +1172,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("AvgOver", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectAvgOver("age").
 			PartitionBy("name").
 			As("avg_age").
@@ -1188,7 +1188,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("CountOver", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCountOver().
 			PartitionBy("name").
 			As("category_count").
@@ -1204,7 +1204,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("MinOver", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectMinOver("age").
 			PartitionBy("name").
 			As("min_age").
@@ -1220,7 +1220,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("MaxOver", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectMaxOver("age").
 			PartitionBy("name").
 			As("max_age").
@@ -1236,7 +1236,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Ntile", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectNtile("num_buckets").
 			OrderBy("age", "ASC").
 			As("quartile").
@@ -1252,7 +1252,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Window with Frame", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectSumOver("age").
 			OrderBy("id", "ASC").
 			Frame("UNBOUNDED PRECEDING", "CURRENT ROW").
@@ -1275,7 +1275,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Invalid frame bound", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectSumOver("age").
 			Frame("INVALID BOUND", "CURRENT ROW").
 			As("running_sum").
@@ -1287,7 +1287,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Invalid partition field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectRowNumber().
 			PartitionBy("invalid_field").
 			As("row_num").
@@ -1299,7 +1299,7 @@ func TestQuery_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Invalid order field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectRowNumber().
 			OrderBy("invalid_field", "ASC").
 			As("row_num").
@@ -1317,13 +1317,13 @@ func TestQuery_WhereBetween(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("WhereBetween", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereBetween("age", "min_age", "max_age").
 			Render()
 		if err != nil {
@@ -1342,7 +1342,7 @@ func TestQuery_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereNotBetween", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereNotBetween("age", "min_age", "max_age").
 			Render()
 		if err != nil {
@@ -1355,7 +1355,7 @@ func TestQuery_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("Between condition helper", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereAnd(Between("age", "min_age", "max_age")).
 			Render()
 		if err != nil {
@@ -1368,7 +1368,7 @@ func TestQuery_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("NotBetween condition helper", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereAnd(NotBetween("age", "min_age", "max_age")).
 			Render()
 		if err != nil {
@@ -1381,7 +1381,7 @@ func TestQuery_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereBetween invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereBetween("nonexistent", "min", "max").
 			Render()
 		if err == nil {
@@ -1390,7 +1390,7 @@ func TestQuery_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereBetween empty low param", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereBetween("age", "", "max").
 			Render()
 		if err == nil {
@@ -1399,7 +1399,7 @@ func TestQuery_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereBetween empty high param", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereBetween("age", "min", "").
 			Render()
 		if err == nil {
@@ -1415,13 +1415,13 @@ func TestQuery_WhereFields(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("WhereFields equal", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereFields("id", "=", "age").
 			Render()
 		if err != nil {
@@ -1434,7 +1434,7 @@ func TestQuery_WhereFields(t *testing.T) {
 	})
 
 	t.Run("WhereFields less than", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			WhereFields("id", "<", "age").
 			Render()
 		if err != nil {
@@ -1447,7 +1447,7 @@ func TestQuery_WhereFields(t *testing.T) {
 	})
 
 	t.Run("WhereFields invalid operator", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			WhereFields("id", "INVALID", "age").
 			Render()
 		if err == nil {
@@ -1462,13 +1462,13 @@ func TestQuery_StringExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectUpper", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectUpper("name", "upper_name").
 			Render()
 		if err != nil {
@@ -1484,7 +1484,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectLower", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectLower("email", "lower_email").
 			Render()
 		if err != nil {
@@ -1497,7 +1497,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectLength", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectLength("name", "name_len").
 			Render()
 		if err != nil {
@@ -1510,7 +1510,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectTrim", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectTrim("name", "trimmed").
 			Render()
 		if err != nil {
@@ -1523,7 +1523,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectLTrim", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectLTrim("name", "ltrimmed").
 			Render()
 		if err != nil {
@@ -1536,7 +1536,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectRTrim", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectRTrim("name", "rtrimmed").
 			Render()
 		if err != nil {
@@ -1549,7 +1549,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectSubstring", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectSubstring("name", "start_pos", "length_param", "name_sub").
 			Render()
 		if err != nil {
@@ -1562,7 +1562,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectReplace", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectReplace("name", "old_val", "new_val", "replaced").
 			Render()
 		if err != nil {
@@ -1575,7 +1575,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectConcat", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectConcat("full_info", "name", "email").
 			Render()
 		if err != nil {
@@ -1588,7 +1588,7 @@ func TestQuery_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectUpper invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectUpper("nonexistent", "alias").
 			Render()
 		if err == nil {
@@ -1603,13 +1603,13 @@ func TestQuery_MathExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectAbs", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectAbs("age", "abs_age").
 			Render()
 		if err != nil {
@@ -1622,7 +1622,7 @@ func TestQuery_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCeil", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCeil("age", "ceil_age").
 			Render()
 		if err != nil {
@@ -1635,7 +1635,7 @@ func TestQuery_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectFloor", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectFloor("age", "floor_age").
 			Render()
 		if err != nil {
@@ -1648,7 +1648,7 @@ func TestQuery_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectRound", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectRound("age", "round_age").
 			Render()
 		if err != nil {
@@ -1661,7 +1661,7 @@ func TestQuery_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectSqrt", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectSqrt("age", "sqrt_age").
 			Render()
 		if err != nil {
@@ -1674,7 +1674,7 @@ func TestQuery_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectPower", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectPower("age", "exponent", "power_age").
 			Render()
 		if err != nil {
@@ -1687,7 +1687,7 @@ func TestQuery_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectAbs invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectAbs("nonexistent", "alias").
 			Render()
 		if err == nil {
@@ -1702,13 +1702,13 @@ func TestQuery_CastExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectCast to TEXT", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCast("age", CastText, "age_str").
 			Render()
 		if err != nil {
@@ -1724,7 +1724,7 @@ func TestQuery_CastExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCast to INTEGER", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCast("id", CastInteger, "id_int").
 			Render()
 		if err != nil {
@@ -1737,7 +1737,7 @@ func TestQuery_CastExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCast invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectCast("nonexistent", CastText, "alias").
 			Render()
 		if err == nil {
@@ -1752,13 +1752,13 @@ func TestQuery_DateExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectNow", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectNow("current_ts").
 			Render()
 		if err != nil {
@@ -1771,7 +1771,7 @@ func TestQuery_DateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCurrentDate", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCurrentDate("today").
 			Render()
 		if err != nil {
@@ -1784,7 +1784,7 @@ func TestQuery_DateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCurrentTime", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCurrentTime("now_time").
 			Render()
 		if err != nil {
@@ -1797,7 +1797,7 @@ func TestQuery_DateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCurrentTimestamp", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCurrentTimestamp("ts").
 			Render()
 		if err != nil {
@@ -1816,13 +1816,13 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectCountStar", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCountStar("total").
 			Render()
 		if err != nil {
@@ -1835,7 +1835,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCount", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCount("id", "count_id").
 			Render()
 		if err != nil {
@@ -1848,7 +1848,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCountDistinct", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCountDistinct("email", "unique_emails").
 			Render()
 		if err != nil {
@@ -1864,7 +1864,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectSum", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectSum("age", "age_sum").
 			Render()
 		if err != nil {
@@ -1877,7 +1877,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectAvg", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectAvg("age", "avg_age").
 			Render()
 		if err != nil {
@@ -1890,7 +1890,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectMin", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectMin("age", "min_age").
 			Render()
 		if err != nil {
@@ -1903,7 +1903,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectMax", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectMax("age", "max_age").
 			Render()
 		if err != nil {
@@ -1916,7 +1916,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCount invalid field", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectCount("nonexistent", "alias").
 			Render()
 		if err == nil {
@@ -1925,7 +1925,7 @@ func TestQuery_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("combined expression query", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("name").
 			SelectUpper("name", "upper_name").
 			SelectCount("id", "count").
@@ -1954,13 +1954,13 @@ func TestQuery_AggregateFilter(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SumFilter", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectSumFilter("age", "name", "=", "filter_val", "filtered_sum").
 			Render()
 		if err != nil {
@@ -1973,7 +1973,7 @@ func TestQuery_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("AvgFilter", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectAvgFilter("age", "name", "=", "filter_val", "filtered_avg").
 			Render()
 		if err != nil {
@@ -1986,7 +1986,7 @@ func TestQuery_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("MinFilter", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectMinFilter("age", "name", "=", "filter_val", "filtered_min").
 			Render()
 		if err != nil {
@@ -1999,7 +1999,7 @@ func TestQuery_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("MaxFilter", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectMaxFilter("age", "name", "=", "filter_val", "filtered_max").
 			Render()
 		if err != nil {
@@ -2012,7 +2012,7 @@ func TestQuery_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("CountFilter", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCountFilter("id", "name", "=", "filter_val", "filtered_count").
 			Render()
 		if err != nil {
@@ -2025,7 +2025,7 @@ func TestQuery_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("CountDistinctFilter", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCountDistinctFilter("email", "name", "=", "filter_val", "filtered_distinct").
 			Render()
 		if err != nil {
@@ -2044,13 +2044,13 @@ func TestQuery_NullExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectCoalesce", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCoalesce("age", "default_age", "age_or_default").
 			Render()
 		if err != nil {
@@ -2063,7 +2063,7 @@ func TestQuery_NullExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectNullIf", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectNullIf("age", "null_val", "nullable_age").
 			Render()
 		if err != nil {
@@ -2082,13 +2082,13 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("simple CASE with single WHEN", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCase().
 			When("age", ">=", "adult_age", "result_adult").
 			Else("result_minor").
@@ -2120,7 +2120,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with multiple WHEN clauses", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCase().
 			When("age", "<", "teen_age", "result_child").
 			When("age", "<", "adult_age", "result_teen").
@@ -2140,7 +2140,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with WhenNull", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCase().
 			WhenNull("age", "result_unknown").
 			Else("result_known").
@@ -2157,7 +2157,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with WhenNotNull", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCase().
 			WhenNotNull("age", "result_has_age").
 			Else("result_no_age").
@@ -2174,7 +2174,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE without ELSE", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			SelectCase().
 			When("age", ">=", "adult_age", "result_adult").
 			As("is_adult").
@@ -2190,7 +2190,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE chained with other operations", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("id", "name").
 			SelectCase().
 			When("age", ">=", "adult_age", "result_adult").
@@ -2215,7 +2215,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with invalid field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectCase().
 			When("nonexistent", "=", "val", "result").
 			As("alias").
@@ -2227,7 +2227,7 @@ func TestQuery_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with invalid operator returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			SelectCase().
 			When("age", "INVALID", "val", "result").
 			As("alias").
@@ -2245,13 +2245,13 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("NULLS FIRST", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			OrderByNulls("age", "ASC", "FIRST").
 			Render()
 		if err != nil {
@@ -2269,7 +2269,7 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	})
 
 	t.Run("NULLS LAST", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			OrderByNulls("age", "DESC", "LAST").
 			Render()
 		if err != nil {
@@ -2286,7 +2286,7 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	t.Run("case insensitive nulls", func(t *testing.T) {
 		nullsOptions := []string{"first", "FIRST", "First", "last", "LAST", "Last"}
 		for _, nulls := range nullsOptions {
-			result, err := cereal.Query().
+			result, err := soy.Query().
 				OrderByNulls("age", "ASC", nulls).
 				Render()
 			if err != nil {
@@ -2300,7 +2300,7 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	})
 
 	t.Run("invalid nulls returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByNulls("age", "ASC", "INVALID").
 			Render()
 		if err == nil {
@@ -2309,7 +2309,7 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	})
 
 	t.Run("invalid field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByNulls("nonexistent", "ASC", "FIRST").
 			Render()
 		if err == nil {
@@ -2318,7 +2318,7 @@ func TestQuery_OrderByNulls(t *testing.T) {
 	})
 
 	t.Run("invalid direction returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			OrderByNulls("age", "INVALID", "FIRST").
 			Render()
 		if err == nil {
@@ -2333,13 +2333,13 @@ func TestQuery_Distinct(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("DISTINCT", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Fields("name").
 			Distinct().
 			Render()
@@ -2361,13 +2361,13 @@ func TestQuery_DistinctOn(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("DISTINCT ON single field", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			DistinctOn("name").
 			OrderBy("name", "ASC").
 			Render()
@@ -2386,7 +2386,7 @@ func TestQuery_DistinctOn(t *testing.T) {
 	})
 
 	t.Run("DISTINCT ON multiple fields", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			DistinctOn("name", "email").
 			OrderBy("name", "ASC").
 			OrderBy("email", "ASC").
@@ -2403,7 +2403,7 @@ func TestQuery_DistinctOn(t *testing.T) {
 	})
 
 	t.Run("invalid field returns error", func(t *testing.T) {
-		_, err := cereal.Query().
+		_, err := soy.Query().
 			DistinctOn("nonexistent").
 			Render()
 		if err == nil {
@@ -2412,7 +2412,7 @@ func TestQuery_DistinctOn(t *testing.T) {
 	})
 
 	t.Run("empty DistinctOn is ignored", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			DistinctOn().
 			Render()
 		if err != nil {
@@ -2430,13 +2430,13 @@ func TestQuery_RowLocking(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[queryTestUser](db, "users", postgres.New())
+	soy, err := New[queryTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("FOR UPDATE", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("id", "=", "user_id").
 			ForUpdate().
 			Render()
@@ -2452,7 +2452,7 @@ func TestQuery_RowLocking(t *testing.T) {
 	})
 
 	t.Run("FOR NO KEY UPDATE", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("id", "=", "user_id").
 			ForNoKeyUpdate().
 			Render()
@@ -2468,7 +2468,7 @@ func TestQuery_RowLocking(t *testing.T) {
 	})
 
 	t.Run("FOR SHARE", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("id", "=", "user_id").
 			ForShare().
 			Render()
@@ -2484,7 +2484,7 @@ func TestQuery_RowLocking(t *testing.T) {
 	})
 
 	t.Run("FOR KEY SHARE", func(t *testing.T) {
-		result, err := cereal.Query().
+		result, err := soy.Query().
 			Where("id", "=", "user_id").
 			ForKeyShare().
 			Render()

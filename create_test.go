@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -24,13 +24,13 @@ func TestCreate_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[createTestUser](db, "users", postgres.New())
+	soy, err := New[createTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("simple INSERT with RETURNING", func(t *testing.T) {
-		result, err := cereal.Insert().Render()
+		result, err := soy.Insert().Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -58,7 +58,7 @@ func TestCreate_Basic(t *testing.T) {
 	})
 
 	t.Run("INSERT with ON CONFLICT DO NOTHING", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email").
 			DoNothing().
 			Render()
@@ -80,7 +80,7 @@ func TestCreate_Basic(t *testing.T) {
 	})
 
 	t.Run("INSERT with ON CONFLICT DO UPDATE", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("name", "name").
@@ -111,7 +111,7 @@ func TestCreate_Basic(t *testing.T) {
 	})
 
 	t.Run("INSERT with multi-column conflict", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email", "name").
 			DoNothing().
 			Render()
@@ -136,12 +136,12 @@ func TestCreate_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[createTestUser](db, "users", postgres.New())
+	soy, err := New[createTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	builder := cereal.Insert()
+	builder := soy.Insert()
 	instance := builder.Instance()
 
 	if instance == nil {
@@ -161,13 +161,13 @@ func TestCreate_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[createTestUser](db, "users", postgres.New())
+	soy, err := New[createTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("successful MustRender", func(t *testing.T) {
-		result := cereal.Insert().MustRender()
+		result := soy.Insert().MustRender()
 		if result == nil {
 			t.Fatal("MustRender() returned nil")
 		}
@@ -182,7 +182,7 @@ func TestCreate_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid column")
 			}
 		}()
-		cereal.Insert().
+		soy.Insert().
 			OnConflict("nonexistent_field").
 			DoNothing().
 			MustRender()
@@ -195,13 +195,13 @@ func TestCreate_ConflictChaining(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[createTestUser](db, "users", postgres.New())
+	soy, err := New[createTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("DoUpdate allows chaining Set calls", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("name", "name").
@@ -236,14 +236,14 @@ func TestCreate_BatchOperations(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[createTestUser](db, "users", postgres.New())
+	soy, err := New[createTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("ExecBatch renders query once for multiple records", func(t *testing.T) {
 		// Just verify the query renders correctly - we can't execute without a real DB
-		result, err := cereal.Insert().Render()
+		result, err := soy.Insert().Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -263,7 +263,7 @@ func TestCreate_BatchOperations(t *testing.T) {
 	})
 
 	t.Run("ExecBatch with ON CONFLICT", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email").
 			DoNothing().
 			Render()
@@ -282,7 +282,7 @@ func TestCreate_BatchOperations(t *testing.T) {
 	})
 
 	t.Run("ExecBatch with upsert", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("name", "name").
@@ -309,13 +309,13 @@ func TestCreate_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[createTestUser](db, "users", postgres.New())
+	soy, err := New[createTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("invalid Set field propagates error", func(t *testing.T) {
-		_, err := cereal.Insert().
+		_, err := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("nonexistent", "value").
@@ -330,7 +330,7 @@ func TestCreate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Set param propagates error", func(t *testing.T) {
-		_, err := cereal.Insert().
+		_, err := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("name", "").
@@ -342,7 +342,7 @@ func TestCreate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("error propagates through DoUpdate Set chain", func(t *testing.T) {
-		builder := cereal.Insert().
+		builder := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("bad_field", "value").
@@ -355,7 +355,7 @@ func TestCreate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("multiple valid sets work correctly", func(t *testing.T) {
-		result, err := cereal.Insert().
+		result, err := soy.Insert().
 			OnConflict("email").
 			DoUpdate().
 			Set("name", "name").

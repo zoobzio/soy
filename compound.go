@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 type Compound[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.CompoundBuilder
-	cereal   cerealExecutor
+	soy      soyExecutor
 	err      error
 }
 
@@ -22,9 +22,9 @@ type Compound[T any] struct {
 //
 // Example:
 //
-//	compound := cereal.Query().
+//	compound := soy.Query().
 //	    Where("status", "=", "active").
-//	    Union(cereal.Query().Where("status", "=", "pending"))
+//	    Union(soy.Query().Where("status", "=", "pending"))
 func (cb *Compound[T]) Union(other *Query[T]) *Compound[T] {
 	if cb.err != nil {
 		return cb
@@ -43,9 +43,9 @@ func (cb *Compound[T]) Union(other *Query[T]) *Compound[T] {
 //
 // Example:
 //
-//	compound := cereal.Query().
+//	compound := soy.Query().
 //	    Where("status", "=", "active").
-//	    UnionAll(cereal.Query().Where("status", "=", "pending"))
+//	    UnionAll(soy.Query().Where("status", "=", "pending"))
 func (cb *Compound[T]) UnionAll(other *Query[T]) *Compound[T] {
 	if cb.err != nil {
 		return cb
@@ -64,9 +64,9 @@ func (cb *Compound[T]) UnionAll(other *Query[T]) *Compound[T] {
 //
 // Example:
 //
-//	compound := cereal.Query().
+//	compound := soy.Query().
 //	    Where("role", "=", "admin").
-//	    Intersect(cereal.Query().Where("status", "=", "active"))
+//	    Intersect(soy.Query().Where("status", "=", "active"))
 func (cb *Compound[T]) Intersect(other *Query[T]) *Compound[T] {
 	if cb.err != nil {
 		return cb
@@ -100,9 +100,9 @@ func (cb *Compound[T]) IntersectAll(other *Query[T]) *Compound[T] {
 //
 // Example:
 //
-//	compound := cereal.Query().
+//	compound := soy.Query().
 //	    Where("status", "=", "active").
-//	    Except(cereal.Query().Where("role", "=", "admin"))
+//	    Except(soy.Query().Where("role", "=", "admin"))
 func (cb *Compound[T]) Except(other *Query[T]) *Compound[T] {
 	if cb.err != nil {
 		return cb
@@ -220,7 +220,7 @@ func (cb *Compound[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("compound query has errors: %w", cb.err)
 	}
 
-	result, err := cb.builder.Render(cb.cereal.renderer())
+	result, err := cb.builder.Render(cb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render compound query: %w", err)
 	}
@@ -238,7 +238,7 @@ func (cb *Compound[T]) MustRender() *astql.QueryResult {
 
 // Exec executes the compound query and returns all matching records.
 func (cb *Compound[T]) Exec(ctx context.Context, params map[string]any) ([]*T, error) {
-	return cb.exec(ctx, cb.cereal.execer(), params)
+	return cb.exec(ctx, cb.soy.execer(), params)
 }
 
 // ExecTx executes the compound query within a transaction.
@@ -252,12 +252,12 @@ func (cb *Compound[T]) exec(ctx context.Context, execer sqlx.ExtContext, params 
 		return nil, fmt.Errorf("compound query has errors: %w", cb.err)
 	}
 
-	result, err := cb.builder.Render(cb.cereal.renderer())
+	result, err := cb.builder.Render(cb.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render compound query: %w", err)
 	}
 
-	return execMultipleRows[T](ctx, execer, result.SQL, params, cb.cereal.getTableName(), "COMPOUND")
+	return execMultipleRows[T](ctx, execer, result.SQL, params, cb.soy.getTableName(), "COMPOUND")
 }
 
 // Instance returns the underlying ASTQL instance.

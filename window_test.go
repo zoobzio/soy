@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ type windowTestUser struct {
 	Status string `db:"status" type:"text"`
 }
 
-func setupWindowTest(t *testing.T) *Cereal[windowTestUser] {
+func setupWindowTest(t *testing.T) *Soy[windowTestUser] {
 	t.Helper()
 
 	sentinel.Tag("db")

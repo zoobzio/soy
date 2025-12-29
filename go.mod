@@ -1,4 +1,4 @@
-module github.com/zoobzio/cereal
+module github.com/zoobzio/soy
 
 go 1.24.0
 

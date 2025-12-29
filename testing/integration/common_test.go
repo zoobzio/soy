@@ -1,4 +1,4 @@
-// Package integration provides integration tests for cereal.
+// Package integration provides integration tests for soy.
 // These tests use testcontainers to spin up a PostgreSQL database automatically.
 package integration
 

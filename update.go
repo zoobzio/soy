@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 type Update[T any] struct {
 	instance *astql.ASTQL
 	builder  *astql.Builder
-	cereal   cerealExecutor // interface for execution
-	hasWhere bool           // tracks if WHERE was called
-	err      error          // stores first error encountered during building
+	soy      soyExecutor // interface for execution
+	hasWhere bool        // tracks if WHERE was called
+	err      error       // stores first error encountered during building
 }
 
 // Set specifies a field to update with a parameter value.
@@ -26,7 +26,7 @@ type Update[T any] struct {
 //
 // Example:
 //
-//	cereal.Update().
+//	soy.Update().
 //	    Set("name", "new_name").
 //	    Set("age", "new_age").
 //	    Where("id", "=", "user_id").
@@ -81,8 +81,8 @@ func (ub *Update[T]) Where(field, operator, param string) *Update[T] {
 // Example:
 //
 //	.WhereAnd(
-//	    cereal.C("age", ">=", "min_age"),
-//	    cereal.C("status", "=", "active"),
+//	    soy.C("age", ">=", "min_age"),
+//	    soy.C("status", "=", "active"),
 //	)
 func (ub *Update[T]) WhereAnd(conditions ...Condition) *Update[T] {
 	if ub.err != nil {
@@ -119,8 +119,8 @@ func (ub *Update[T]) WhereAnd(conditions ...Condition) *Update[T] {
 // Example:
 //
 //	.WhereOr(
-//	    cereal.C("status", "=", "active"),
-//	    cereal.C("status", "=", "pending"),
+//	    soy.C("status", "=", "active"),
+//	    soy.C("status", "=", "pending"),
 //	)
 func (ub *Update[T]) WhereOr(conditions ...Condition) *Update[T] {
 	if ub.err != nil {
@@ -284,13 +284,13 @@ func (ub *Update[T]) buildCondition(cond Condition) (astql.ConditionItem, error)
 //	    "new_age": 30,
 //	    "user_id": 123,
 //	}
-//	updated, err := cereal.Update().
+//	updated, err := soy.Update().
 //	    Set("name", "new_name").
 //	    Set("age", "new_age").
 //	    Where("id", "=", "user_id").
 //	    Exec(ctx, params)
 func (ub *Update[T]) Exec(ctx context.Context, params map[string]any) (*T, error) {
-	return ub.exec(ctx, ub.cereal.execer(), params)
+	return ub.exec(ctx, ub.soy.execer(), params)
 }
 
 // ExecTx executes the UPDATE query within a transaction.
@@ -308,12 +308,12 @@ func (ub *Update[T]) ExecTx(ctx context.Context, tx *sqlx.Tx, params map[string]
 //	    {"new_name": "Updated 1", "user_id": 1},
 //	    {"new_name": "Updated 2", "user_id": 2},
 //	}
-//	rowsAffected, err := cereal.Modify().
+//	rowsAffected, err := soy.Modify().
 //	    Set("name", "new_name").
 //	    Where("id", "=", "user_id").
 //	    ExecBatch(ctx, batchParams)
 func (ub *Update[T]) ExecBatch(ctx context.Context, batchParams []map[string]any) (int64, error) {
-	return ub.execBatch(ctx, ub.cereal.execer(), batchParams)
+	return ub.execBatch(ctx, ub.soy.execer(), batchParams)
 }
 
 // ExecBatchTx executes the UPDATE query for multiple parameter sets within a transaction.
@@ -324,7 +324,7 @@ func (ub *Update[T]) ExecBatchTx(ctx context.Context, tx *sqlx.Tx, batchParams [
 
 // execBatch is the internal batch execution method.
 func (ub *Update[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, batchParams []map[string]any) (int64, error) {
-	return executeBatch(ctx, execer, batchParams, ub.builder, ub.cereal.renderer(), ub.cereal.getTableName(), "UPDATE", ub.hasWhere, ub.err)
+	return executeBatch(ctx, execer, batchParams, ub.builder, ub.soy.renderer(), ub.soy.getTableName(), "UPDATE", ub.hasWhere, ub.err)
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.
@@ -340,13 +340,13 @@ func (ub *Update[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 	}
 
 	// Render the query
-	result, err := ub.builder.Render(ub.cereal.renderer())
+	result, err := ub.builder.Render(ub.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render UPDATE query: %w", err)
 	}
 
 	// Emit query started event
-	tableName := ub.cereal.getTableName()
+	tableName := ub.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field("UPDATE"),
@@ -427,7 +427,7 @@ func (ub *Update[T]) Render() (*astql.QueryResult, error) {
 		return nil, fmt.Errorf("update  has errors: %w", ub.err)
 	}
 
-	result, err := ub.builder.Render(ub.cereal.renderer())
+	result, err := ub.builder.Render(ub.soy.renderer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to render UPDATE query: %w", err)
 	}

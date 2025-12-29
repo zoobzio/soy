@@ -12,7 +12,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Create Cereal instance with '...'
+1. Create Soy instance with '...'
 2. Execute query '...'
 3. See error
 
@@ -23,7 +23,7 @@ package main
 
 import (
     "context"
-    "github.com/zoobzio/cereal"
+    "github.com/zoobzio/soy"
 )
 
 type User struct {
@@ -45,7 +45,7 @@ What actually happened, including any error messages or stack traces.
 **Environment:**
  - OS: [e.g. macOS, Linux, Windows]
  - Go version: [e.g. 1.23.2]
- - cereal version: [e.g. v0.1.0]
+ - soy version: [e.g. v0.1.0]
  - Database: [e.g. PostgreSQL 16.0]
 
 **Additional context**

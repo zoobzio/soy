@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"context"
@@ -25,13 +25,13 @@ func TestDelete_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("DELETE with WHERE", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			Where("id", "=", "user_id").
 			Render()
 		if err != nil {
@@ -61,7 +61,7 @@ func TestDelete_Basic(t *testing.T) {
 	})
 
 	t.Run("DELETE with multiple WHERE (AND)", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			Where("id", "=", "user_id").
 			Where("email", "=", "user_email").
 			Render()
@@ -78,7 +78,7 @@ func TestDelete_Basic(t *testing.T) {
 	})
 
 	t.Run("DELETE with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -97,7 +97,7 @@ func TestDelete_Basic(t *testing.T) {
 	})
 
 	t.Run("DELETE with WhereOr", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -116,7 +116,7 @@ func TestDelete_Basic(t *testing.T) {
 	})
 
 	t.Run("DELETE with WhereNull", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereNull("age").
 			Render()
 		if err != nil {
@@ -131,7 +131,7 @@ func TestDelete_Basic(t *testing.T) {
 	})
 
 	t.Run("DELETE with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereNotNull("age").
 			Render()
 		if err != nil {
@@ -152,7 +152,7 @@ func TestDelete_SafetyChecks(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestDelete_SafetyChecks(t *testing.T) {
 		ctx := context.Background()
 		params := map[string]any{}
 
-		_, err := cereal.Remove().Exec(ctx, params)
+		_, err := soy.Remove().Exec(ctx, params)
 		if err == nil {
 			t.Error("Expected error when executing DELETE without WHERE")
 		}
@@ -171,7 +171,7 @@ func TestDelete_SafetyChecks(t *testing.T) {
 	})
 
 	t.Run("Render succeeds with WHERE clause", func(t *testing.T) {
-		builder := cereal.Remove().Where("id", "=", "user_id")
+		builder := soy.Remove().Where("id", "=", "user_id")
 
 		// Render should work
 		result, err := builder.Render()
@@ -193,12 +193,12 @@ func TestDelete_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	builder := cereal.Remove()
+	builder := soy.Remove()
 	instance := builder.Instance()
 
 	if instance == nil {
@@ -218,13 +218,13 @@ func TestDelete_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("successful MustRender", func(t *testing.T) {
-		result := cereal.Remove().
+		result := soy.Remove().
 			Where("id", "=", "user_id").
 			MustRender()
 		if result == nil {
@@ -241,7 +241,7 @@ func TestDelete_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid field")
 			}
 		}()
-		cereal.Remove().
+		soy.Remove().
 			Where("nonexistent_field", "=", "value").
 			MustRender()
 	})
@@ -252,7 +252,7 @@ func TestDelete_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid operator")
 			}
 		}()
-		cereal.Remove().
+		soy.Remove().
 			Where("id", "INVALID", "user_id").
 			MustRender()
 	})
@@ -264,7 +264,7 @@ func TestDelete_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestDelete_Validation(t *testing.T) {
 	t.Run("all supported operators in WHERE", func(t *testing.T) {
 		operators := []string{"=", "!=", ">", ">=", "<", "<="}
 		for _, op := range operators {
-			result, err := cereal.Remove().
+			result, err := soy.Remove().
 				Where("age", op, "value").
 				Render()
 			if err != nil {
@@ -291,13 +291,13 @@ func TestDelete_BatchOperations(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("ExecBatch renders query once for multiple param sets", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			Where("id", "=", "user_id").
 			Render()
 		if err != nil {
@@ -315,7 +315,7 @@ func TestDelete_BatchOperations(t *testing.T) {
 	})
 
 	t.Run("ExecBatch with complex WHERE", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("email", "=", "user_email"),
@@ -339,7 +339,7 @@ func TestDelete_BatchOperations(t *testing.T) {
 			{"user_id": 2},
 		}
 
-		_, err := cereal.Remove().ExecBatch(ctx, batchParams)
+		_, err := soy.Remove().ExecBatch(ctx, batchParams)
 		if err == nil {
 			t.Error("Expected error when executing batch DELETE without WHERE")
 		}
@@ -355,13 +355,13 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[deleteTestUser](db, "users", postgres.New())
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("invalid Where field returns error", func(t *testing.T) {
-		_, err := cereal.Remove().
+		_, err := soy.Remove().
 			Where("nonexistent", "=", "value").
 			Render()
 		if err == nil {
@@ -370,7 +370,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereAnd field returns error", func(t *testing.T) {
-		_, err := cereal.Remove().
+		_, err := soy.Remove().
 			WhereAnd(C("nonexistent", "=", "value")).
 			Render()
 		if err == nil {
@@ -379,7 +379,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereOr field returns error", func(t *testing.T) {
-		_, err := cereal.Remove().
+		_, err := soy.Remove().
 			WhereOr(C("nonexistent", "=", "value")).
 			Render()
 		if err == nil {
@@ -388,7 +388,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereNull field returns error", func(t *testing.T) {
-		_, err := cereal.Remove().
+		_, err := soy.Remove().
 			WhereNull("nonexistent").
 			Render()
 		if err == nil {
@@ -397,7 +397,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereNotNull field returns error", func(t *testing.T) {
-		_, err := cereal.Remove().
+		_, err := soy.Remove().
 			WhereNotNull("nonexistent").
 			Render()
 		if err == nil {
@@ -406,7 +406,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("error propagates through chain", func(t *testing.T) {
-		builder := cereal.Remove().
+		builder := soy.Remove().
 			Where("bad_field", "=", "value").
 			Where("id", "=", "user_id") // Should not override error
 		_, err := builder.Render()
@@ -416,7 +416,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereAnd().
 			Where("id", "=", "user_id").
 			Render()
@@ -429,7 +429,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereOr is ignored", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereOr().
 			Where("id", "=", "user_id").
 			Render()
@@ -442,7 +442,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("Null condition in WhereAnd", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereAnd(Null("age")).
 			Render()
 		if err != nil {
@@ -454,7 +454,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
-		result, err := cereal.Remove().
+		result, err := soy.Remove().
 			WhereOr(NotNull("age")).
 			Render()
 		if err != nil {
@@ -466,7 +466,7 @@ func TestDelete_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid operator in condition returns error", func(t *testing.T) {
-		_, err := cereal.Remove().
+		_, err := soy.Remove().
 			WhereAnd(C("age", "INVALID", "value")).
 			Render()
 		if err == nil {

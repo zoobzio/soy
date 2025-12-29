@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -24,13 +24,13 @@ func TestUpdate_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[updateTestUser](db, "users", postgres.New())
+	soy, err := New[updateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("UPDATE with SET and WHERE", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			Set("age", "new_age").
 			Where("id", "=", "user_id").
@@ -71,7 +71,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE with multiple WHERE (AND)", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			Where("id", "=", "user_id").
 			Where("email", "=", "user_email").
@@ -89,7 +89,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereAnd(
 				C("age", ">=", "min_age"),
@@ -109,7 +109,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE with WhereOr", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereOr(
 				C("age", "<", "young_age"),
@@ -129,7 +129,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE with WhereNull", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereNull("age").
 			Render()
@@ -145,7 +145,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereNotNull("age").
 			Render()
@@ -161,7 +161,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE single field", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			Where("id", "=", "user_id").
 			Render()
@@ -177,7 +177,7 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 
 	t.Run("UPDATE multiple fields", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			Set("age", "new_age").
 			Set("email", "new_email").
@@ -207,12 +207,12 @@ func TestUpdate_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[updateTestUser](db, "users", postgres.New())
+	soy, err := New[updateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	builder := cereal.Modify()
+	builder := soy.Modify()
 	instance := builder.Instance()
 
 	if instance == nil {
@@ -232,13 +232,13 @@ func TestUpdate_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[updateTestUser](db, "users", postgres.New())
+	soy, err := New[updateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("successful MustRender", func(t *testing.T) {
-		result := cereal.Modify().
+		result := soy.Modify().
 			Set("name", "new_name").
 			Where("id", "=", "user_id").
 			MustRender()
@@ -256,7 +256,7 @@ func TestUpdate_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid field")
 			}
 		}()
-		cereal.Modify().
+		soy.Modify().
 			Set("nonexistent_field", "value").
 			Where("id", "=", "user_id").
 			MustRender()
@@ -268,7 +268,7 @@ func TestUpdate_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid operator")
 			}
 		}()
-		cereal.Modify().
+		soy.Modify().
 			Set("name", "new_name").
 			Where("id", "INVALID", "user_id").
 			MustRender()
@@ -281,7 +281,7 @@ func TestUpdate_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[updateTestUser](db, "users", postgres.New())
+	soy, err := New[updateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestUpdate_Validation(t *testing.T) {
 	t.Run("all supported operators in WHERE", func(t *testing.T) {
 		operators := []string{"=", "!=", ">", ">=", "<", "<="}
 		for _, op := range operators {
-			result, err := cereal.Modify().
+			result, err := soy.Modify().
 				Set("name", "new_name").
 				Where("age", op, "value").
 				Render()
@@ -309,13 +309,13 @@ func TestUpdate_BatchOperations(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[updateTestUser](db, "users", postgres.New())
+	soy, err := New[updateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("ExecBatch renders query once for multiple param sets", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			Where("id", "=", "user_id").
 			Render()
@@ -337,7 +337,7 @@ func TestUpdate_BatchOperations(t *testing.T) {
 	})
 
 	t.Run("ExecBatch with multiple SET fields", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			Set("age", "new_age").
 			Where("id", "=", "user_id").
@@ -357,7 +357,7 @@ func TestUpdate_BatchOperations(t *testing.T) {
 	})
 
 	t.Run("ExecBatch with complex WHERE", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereAnd(
 				C("age", ">=", "min_age"),
@@ -382,13 +382,13 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[updateTestUser](db, "users", postgres.New())
+	soy, err := New[updateTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("invalid Set field returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("nonexistent", "value").
 			Where("id", "=", "user_id").
 			Render()
@@ -401,7 +401,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Set param returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("name", "").
 			Where("id", "=", "user_id").
 			Render()
@@ -411,7 +411,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Where field returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("name", "new_name").
 			Where("nonexistent", "=", "value").
 			Render()
@@ -421,7 +421,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereAnd field returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("name", "new_name").
 			WhereAnd(C("nonexistent", "=", "value")).
 			Render()
@@ -431,7 +431,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereOr field returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("name", "new_name").
 			WhereOr(C("nonexistent", "=", "value")).
 			Render()
@@ -441,7 +441,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereNull field returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("name", "new_name").
 			WhereNull("nonexistent").
 			Render()
@@ -451,7 +451,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid WhereNotNull field returns error", func(t *testing.T) {
-		_, err := cereal.Modify().
+		_, err := soy.Modify().
 			Set("name", "new_name").
 			WhereNotNull("nonexistent").
 			Render()
@@ -461,7 +461,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("error propagates through chain", func(t *testing.T) {
-		builder := cereal.Modify().
+		builder := soy.Modify().
 			Set("bad_field", "value").
 			Set("name", "new_name"). // Should not override error
 			Where("id", "=", "user_id")
@@ -472,7 +472,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereAnd().
 			Where("id", "=", "user_id").
@@ -487,7 +487,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereOr is ignored", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereOr().
 			Where("id", "=", "user_id").
@@ -501,7 +501,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("Null condition in WhereAnd", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereAnd(Null("age")).
 			Render()
@@ -514,7 +514,7 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
-		result, err := cereal.Modify().
+		result, err := soy.Modify().
 			Set("name", "new_name").
 			WhereOr(NotNull("age")).
 			Render()

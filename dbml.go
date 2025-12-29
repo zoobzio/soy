@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"fmt"
@@ -169,7 +169,7 @@ const (
 )
 
 // inferPostgresType maps Go types to default Postgres types.
-// This is the same logic from the OLD cereal code.
+// This is the same logic from the OLD soy code.
 func inferPostgresType(goType string) string {
 	// Handle pointer types
 	goType = strings.TrimPrefix(goType, "*")

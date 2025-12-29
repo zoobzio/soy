@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -24,15 +24,15 @@ func TestWhereBuilder_AddWhere(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	newBuilder, err := wb.addWhere("age", ">=", "min_age")
 
 	if err != nil {
@@ -63,15 +63,15 @@ func TestWhereBuilder_AddWhere_InvalidField(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	_, err = wb.addWhere("nonexistent_field", "=", "value")
 
 	if err == nil {
@@ -85,15 +85,15 @@ func TestWhereBuilder_AddWhere_InvalidOperator(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	_, err = wb.addWhere("age", "INVALID", "value")
 
 	if err == nil {
@@ -107,15 +107,15 @@ func TestWhereBuilder_AddWhereAnd(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	conditions := []Condition{
 		C("age", ">=", "min_age"),
 		C("age", "<=", "max_age"),
@@ -143,15 +143,15 @@ func TestWhereBuilder_AddWhereAnd_Empty(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	newBuilder, err := wb.addWhereAnd()
 
 	if err != nil {
@@ -169,15 +169,15 @@ func TestWhereBuilder_AddWhereOr(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	conditions := []Condition{
 		C("age", "<", "young_age"),
 		C("age", ">", "old_age"),
@@ -205,15 +205,15 @@ func TestWhereBuilder_AddWhereNull(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	newBuilder, err := wb.addWhereNull("age")
 
 	if err != nil {
@@ -236,15 +236,15 @@ func TestWhereBuilder_AddWhereNull_InvalidField(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	_, err = wb.addWhereNull("nonexistent_field")
 
 	if err == nil {
@@ -258,15 +258,15 @@ func TestWhereBuilder_AddWhereNotNull(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	newBuilder, err := wb.addWhereNotNull("age")
 
 	if err != nil {
@@ -289,14 +289,14 @@ func TestWhereBuilder_BuildCondition(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 
 	t.Run("standard condition", func(t *testing.T) {
 		cond := C("age", ">=", "min_age")
@@ -380,15 +380,15 @@ func TestWhereBuilder_AddWhereBetween(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	newBuilder, err := wb.addWhereBetween("age", "min_age", "max_age")
 
 	if err != nil {
@@ -421,15 +421,15 @@ func TestWhereBuilder_AddWhereBetween_InvalidField(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	_, err = wb.addWhereBetween("nonexistent_field", "min", "max")
 
 	if err == nil {
@@ -443,15 +443,15 @@ func TestWhereBuilder_AddWhereNotBetween(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
 
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 	newBuilder, err := wb.addWhereNotBetween("age", "min_age", "max_age")
 
 	if err != nil {
@@ -476,14 +476,14 @@ func TestWhereBuilder_BuildCondition_Between(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[whereTestUser](db, "users", postgres.New())
+	soy, err := New[whereTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	tbl, _ := cereal.instance.TryT("users")
+	tbl, _ := soy.instance.TryT("users")
 	builder := astql.Select(tbl)
-	wb := newWhereBuilder(cereal.instance, builder)
+	wb := newWhereBuilder(soy.instance, builder)
 
 	t.Run("BETWEEN condition", func(t *testing.T) {
 		cond := Between("age", "min_age", "max_age")

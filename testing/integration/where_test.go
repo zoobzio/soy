@@ -6,7 +6,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zoobzio/astql/pkg/postgres"
-	"github.com/zoobzio/cereal"
+	"github.com/zoobzio/soy"
 )
 
 func TestNullHandling_Integration(t *testing.T) {
@@ -14,7 +14,7 @@ func TestNullHandling_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestComplexWhere_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -278,8 +278,8 @@ func TestComplexWhere_Integration(t *testing.T) {
 		params := map[string]any{"min_age": 30, "max_age": 35}
 		users, err := c.Query().
 			WhereAnd(
-				cereal.C("age", ">=", "min_age"),
-				cereal.C("age", "<=", "max_age"),
+				soy.C("age", ">=", "min_age"),
+				soy.C("age", "<=", "max_age"),
 			).
 			OrderBy("age", "ASC").
 			Exec(ctx, params)
@@ -296,8 +296,8 @@ func TestComplexWhere_Integration(t *testing.T) {
 		params := map[string]any{"age1": 25, "age2": 35}
 		users, err := c.Query().
 			WhereOr(
-				cereal.C("age", "=", "age1"),
-				cereal.C("age", "=", "age2"),
+				soy.C("age", "=", "age1"),
+				soy.C("age", "=", "age2"),
 			).
 			OrderBy("age", "ASC").
 			Exec(ctx, params)
@@ -324,8 +324,8 @@ func TestComplexWhere_Integration(t *testing.T) {
 		params := map[string]any{"min_age": 30}
 		users, err := c.Query().
 			WhereAnd(
-				cereal.NotNull("age"),
-				cereal.C("age", ">=", "min_age"),
+				soy.NotNull("age"),
+				soy.C("age", ">=", "min_age"),
 			).
 			OrderBy("age", "ASC").
 			Exec(ctx, params)
@@ -342,8 +342,8 @@ func TestComplexWhere_Integration(t *testing.T) {
 		params := map[string]any{"target_age": 25}
 		users, err := c.Query().
 			WhereOr(
-				cereal.Null("age"),
-				cereal.C("age", "=", "target_age"),
+				soy.Null("age"),
+				soy.C("age", "=", "target_age"),
 			).
 			Exec(ctx, params)
 		if err != nil {

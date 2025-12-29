@@ -5,7 +5,7 @@ all: test lint
 
 # Display help
 help:
-	@echo "cereal Development Commands"
+	@echo "soy Development Commands"
 	@echo "=========================="
 	@echo ""
 	@echo "Testing & Quality:"

@@ -1,6 +1,6 @@
-# Contributing to cereal
+# Contributing to soy
 
-Thank you for your interest in contributing to cereal! This guide will help you get started.
+Thank you for your interest in contributing to soy! This guide will help you get started.
 
 ## Code of Conduct
 
@@ -9,7 +9,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/yourusername/cereal.git`
+2. Clone your fork: `git clone https://github.com/yourusername/soy.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Run tests: `go test ./...`
@@ -114,7 +114,7 @@ make coverage
 ## Project Structure
 
 ```
-cereal/
+soy/
 ├── *.go              # Core library files
 ├── *_test.go         # Tests
 ├── go.mod            # Module dependencies
@@ -178,7 +178,7 @@ Every PR automatically shows the next version that will be created:
 
 ## Dependencies
 
-Cereal builds on:
+Soy builds on:
 - [sqlx](https://github.com/jmoiron/sqlx) - Database operations
 - [Sentinel](https://github.com/zoobzio/sentinel) - Type metadata extraction
 - [ASTQL](https://github.com/zoobzio/astql) - SQL validation
@@ -192,4 +192,4 @@ When contributing, respect the boundaries between these layers.
 - Check existing issues first
 - Be patient and respectful
 
-Thank you for contributing to cereal!
+Thank you for contributing to soy!

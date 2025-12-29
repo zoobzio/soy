@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -21,7 +21,7 @@ type builderTestUser struct {
 	UpdatedAt string `db:"updated_at" type:"timestamp"`
 }
 
-func setupBuilderTest(t *testing.T) *Cereal[builderTestUser] {
+func setupBuilderTest(t *testing.T) *Soy[builderTestUser] {
 	t.Helper()
 
 	sentinel.Tag("db")

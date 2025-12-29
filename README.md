@@ -1,13 +1,13 @@
-# cereal
+# soy
 
-[![CI Status](https://github.com/zoobzio/cereal/workflows/CI/badge.svg)](https://github.com/zoobzio/cereal/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/zoobzio/cereal/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobzio/cereal)
-[![Go Report Card](https://goreportcard.com/badge/github.com/zoobzio/cereal)](https://goreportcard.com/report/github.com/zoobzio/cereal)
-[![CodeQL](https://github.com/zoobzio/cereal/workflows/CodeQL/badge.svg)](https://github.com/zoobzio/cereal/security/code-scanning)
-[![Go Reference](https://pkg.go.dev/badge/github.com/zoobzio/cereal.svg)](https://pkg.go.dev/github.com/zoobzio/cereal)
-[![License](https://img.shields.io/github/license/zoobzio/cereal)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/cereal)](go.mod)
-[![Release](https://img.shields.io/github/v/release/zoobzio/cereal)](https://github.com/zoobzio/cereal/releases)
+[![CI Status](https://github.com/zoobzio/soy/workflows/CI/badge.svg)](https://github.com/zoobzio/soy/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/zoobzio/soy/graph/badge.svg?branch=main)](https://codecov.io/gh/zoobzio/soy)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zoobzio/soy)](https://goreportcard.com/report/github.com/zoobzio/soy)
+[![CodeQL](https://github.com/zoobzio/soy/workflows/CodeQL/badge.svg)](https://github.com/zoobzio/soy/security/code-scanning)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zoobzio/soy.svg)](https://pkg.go.dev/github.com/zoobzio/soy)
+[![License](https://img.shields.io/github/license/zoobzio/soy)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/zoobzio/soy)](go.mod)
+[![Release](https://img.shields.io/github/v/release/zoobzio/soy)](https://github.com/zoobzio/soy/releases)
 
 Type-safe SQL query builder for Go with schema validation and multi-database support.
 
@@ -24,7 +24,7 @@ Field names are validated at runtime, not compile time. Reflection happens on ev
 
 ## The Solution
 
-Cereal validates your schema at initialization, not runtime:
+Soy validates your schema at initialization, not runtime:
 
 ```go
 import "github.com/zoobzio/astql/pkg/postgres"
@@ -36,7 +36,7 @@ type User struct {
 }
 
 // Schema validated once at startup
-users, _ := cereal.New[User](db, "users", postgres.New())
+users, _ := soy.New[User](db, "users", postgres.New())
 
 // Type-safe queries — "emial" would fail at initialization, not runtime
 user, _ := users.Select().
@@ -71,7 +71,7 @@ You get:
 ## Install
 
 ```bash
-go get github.com/zoobzio/cereal
+go get github.com/zoobzio/soy
 ```
 
 Requires Go 1.24+.
@@ -89,7 +89,7 @@ import (
     "github.com/jmoiron/sqlx"
     _ "github.com/lib/pq"
     "github.com/zoobzio/astql/pkg/postgres"
-    "github.com/zoobzio/cereal"
+    "github.com/zoobzio/soy"
 )
 
 type User struct {
@@ -104,7 +104,7 @@ func main() {
     defer db.Close()
 
     // Create instance — schema validated here
-    users, _ := cereal.New[User](db, "users", postgres.New())
+    users, _ := soy.New[User](db, "users", postgres.New())
     ctx := context.Background()
 
     // Insert
@@ -173,17 +173,17 @@ import (
     "github.com/zoobzio/astql/pkg/mssql"
 )
 
-users, _ := cereal.New[User](db, "users", postgres.New())  // PostgreSQL
-users, _ := cereal.New[User](db, "users", mysql.New())     // MySQL
-users, _ := cereal.New[User](db, "users", sqlite.New())    // SQLite
-users, _ := cereal.New[User](db, "users", mssql.New())     // SQL Server
+users, _ := soy.New[User](db, "users", postgres.New())  // PostgreSQL
+users, _ := soy.New[User](db, "users", mysql.New())     // MySQL
+users, _ := soy.New[User](db, "users", sqlite.New())    // SQLite
+users, _ := soy.New[User](db, "users", mssql.New())     // SQL Server
 ```
 
 Each provider handles dialect differences automatically.
 
 ## Documentation
 
-- [Overview](docs/1.overview.md) — what cereal does and why
+- [Overview](docs/1.overview.md) — what soy does and why
 - **Learn**
   - [Quickstart](docs/2.learn/1.quickstart.md) — get started in minutes
   - [Concepts](docs/2.learn/2.concepts.md) — queries, conditions, builders

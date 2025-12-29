@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ type caseTestUser struct {
 	Status string `db:"status" type:"text"`
 }
 
-func setupCaseTest(t *testing.T) *Cereal[caseTestUser] {
+func setupCaseTest(t *testing.T) *Soy[caseTestUser] {
 	t.Helper()
 
 	sentinel.Tag("db")

@@ -1,4 +1,4 @@
-package cereal
+package soy
 
 import (
 	"strings"
@@ -24,13 +24,13 @@ func TestSelect_Basic(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("simple SELECT all fields", func(t *testing.T) {
-		result, err := cereal.Select().Render()
+		result, err := soy.Select().Render()
 		if err != nil {
 			t.Fatalf("Render() failed: %v", err)
 		}
@@ -46,7 +46,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT specific fields", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("id", "email", "name").
 			Render()
 		if err != nil {
@@ -67,7 +67,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WHERE", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("id", "email").
 			Where("age", ">=", "min_age").
 			Render()
@@ -98,7 +98,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with multiple WHERE (AND)", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("age", ">=", "min_age").
 			Where("email", "=", "user_email").
 			Render()
@@ -120,7 +120,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereAnd", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereAnd(
 				C("age", ">=", "min_age"),
 				C("age", "<=", "max_age"),
@@ -144,7 +144,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereOr", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereOr(
 				C("age", "<", "young_age"),
 				C("age", ">", "old_age"),
@@ -168,7 +168,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereNull", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereNull("email").
 			Render()
 		if err != nil {
@@ -183,7 +183,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with WhereNotNull", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereNotNull("email").
 			Render()
 		if err != nil {
@@ -198,7 +198,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with ORDER BY", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("name", "email").
 			OrderBy("name", "asc").
 			Render()
@@ -217,7 +217,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with ORDER BY desc", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			OrderBy("age", "DESC").
 			Render()
 		if err != nil {
@@ -232,7 +232,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with LIMIT and OFFSET", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Limit(10).
 			Offset(20).
 			Render()
@@ -251,7 +251,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("SELECT with DISTINCT", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("email").
 			Distinct().
 			Render()
@@ -267,7 +267,7 @@ func TestSelect_Basic(t *testing.T) {
 	})
 
 	t.Run("complex SELECT query", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("id", "email", "name").
 			WhereAnd(
 				C("age", ">=", "min_age"),
@@ -355,12 +355,12 @@ func TestSelect_InstanceAccess(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	builder := cereal.Select()
+	builder := soy.Select()
 	instance := builder.Instance()
 
 	if instance == nil {
@@ -383,13 +383,13 @@ func TestSelect_MustRender(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("successful MustRender", func(t *testing.T) {
-		result := cereal.Select().Fields("id").MustRender()
+		result := soy.Select().Fields("id").MustRender()
 		if result == nil {
 			t.Fatal("MustRender() returned nil")
 		}
@@ -404,7 +404,7 @@ func TestSelect_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid field")
 			}
 		}()
-		cereal.Select().Fields("nonexistent_field").MustRender()
+		soy.Select().Fields("nonexistent_field").MustRender()
 	})
 
 	t.Run("MustRender panics on invalid operator", func(t *testing.T) {
@@ -413,7 +413,7 @@ func TestSelect_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid operator")
 			}
 		}()
-		cereal.Select().Where("age", "INVALID", "min_age").MustRender()
+		soy.Select().Where("age", "INVALID", "min_age").MustRender()
 	})
 
 	t.Run("MustRender panics on invalid direction", func(t *testing.T) {
@@ -422,7 +422,7 @@ func TestSelect_MustRender(t *testing.T) {
 				t.Error("MustRender() did not panic with invalid direction")
 			}
 		}()
-		cereal.Select().OrderBy("name", "INVALID").MustRender()
+		soy.Select().OrderBy("name", "INVALID").MustRender()
 	})
 }
 
@@ -432,7 +432,7 @@ func TestSelect_Validation(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -440,7 +440,7 @@ func TestSelect_Validation(t *testing.T) {
 	t.Run("all supported operators", func(t *testing.T) {
 		operators := []string{"=", "!=", ">", ">=", "<", "<=", "LIKE", "NOT LIKE", "<->", "<#>", "<=>", "<+>"}
 		for _, op := range operators {
-			result, err := cereal.Select().
+			result, err := soy.Select().
 				Where("age", op, "value").
 				Render()
 			if err != nil {
@@ -455,7 +455,7 @@ func TestSelect_Validation(t *testing.T) {
 	t.Run("case insensitive directions", func(t *testing.T) {
 		directions := []string{"asc", "ASC", "Asc", "desc", "DESC", "Desc"}
 		for _, dir := range directions {
-			result, err := cereal.Select().
+			result, err := soy.Select().
 				OrderBy("name", dir).
 				Render()
 			if err != nil {
@@ -468,7 +468,7 @@ func TestSelect_Validation(t *testing.T) {
 	})
 
 	t.Run("LIKE pattern matching", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("email", "LIKE", "email_pattern").
 			Render()
 		if err != nil {
@@ -487,7 +487,7 @@ func TestSelect_Validation(t *testing.T) {
 	})
 
 	t.Run("NOT LIKE pattern matching", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("email", "NOT LIKE", "spam_pattern").
 			Render()
 		if err != nil {
@@ -512,13 +512,13 @@ func TestSelect_OrderByExpr(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("OrderByExpr with vector distance operator", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			OrderByExpr("id", "<->", "query_value", "asc").
 			Render()
 		if err != nil {
@@ -536,7 +536,7 @@ func TestSelect_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("OrderByExpr with invalid direction", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			OrderByExpr("id", "<->", "query_value", "INVALID").
 			Render()
 		if err == nil {
@@ -545,7 +545,7 @@ func TestSelect_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("OrderByExpr with invalid operator", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			OrderByExpr("id", "BADOP", "query_value", "asc").
 			Render()
 		if err == nil {
@@ -554,7 +554,7 @@ func TestSelect_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("OrderByExpr with invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			OrderByExpr("nonexistent", "<->", "query_value", "asc").
 			Render()
 		if err == nil {
@@ -563,7 +563,7 @@ func TestSelect_OrderByExpr(t *testing.T) {
 	})
 
 	t.Run("OrderByExpr with empty param", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			OrderByExpr("id", "<->", "", "asc").
 			Render()
 		if err == nil {
@@ -578,13 +578,13 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("invalid field in Fields returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			Fields("nonexistent").
 			Render()
 		if err == nil {
@@ -593,7 +593,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty Fields is ignored", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields().
 			Render()
 		if err != nil {
@@ -605,7 +605,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Where field returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			Where("nonexistent", "=", "value").
 			Render()
 		if err == nil {
@@ -614,7 +614,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid Where param returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			Where("id", "=", "").
 			Render()
 		if err == nil {
@@ -623,7 +623,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid OrderBy field returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			OrderBy("nonexistent", "asc").
 			Render()
 		if err == nil {
@@ -632,7 +632,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("error propagates through chain", func(t *testing.T) {
-		builder := cereal.Select().
+		builder := soy.Select().
 			Fields("bad_field").
 			Where("id", "=", "user_id")
 		_, err := builder.Render()
@@ -642,7 +642,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereAnd is ignored", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereAnd().
 			Where("id", "=", "user_id").
 			Render()
@@ -655,7 +655,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("empty WhereOr is ignored", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereOr().
 			Where("id", "=", "user_id").
 			Render()
@@ -668,7 +668,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("Null condition in WhereAnd", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereAnd(Null("age")).
 			Render()
 		if err != nil {
@@ -680,7 +680,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("NotNull condition in WhereOr", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereOr(NotNull("age")).
 			Render()
 		if err != nil {
@@ -692,7 +692,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid operator in condition returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			WhereAnd(C("age", "INVALID", "value")).
 			Render()
 		if err == nil {
@@ -701,7 +701,7 @@ func TestSelect_ErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid param in condition returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			WhereAnd(C("age", "=", "")).
 			Render()
 		if err == nil {
@@ -716,13 +716,13 @@ func TestSelect_HavingClauses(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("simple Having", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("age").
 			GroupBy("age").
 			Having("age", ">", "min_age").
@@ -736,7 +736,7 @@ func TestSelect_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("HavingAgg COUNT", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("age").
 			GroupBy("age").
 			HavingAgg("COUNT", "", ">", "min_count").
@@ -753,7 +753,7 @@ func TestSelect_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("HavingAgg SUM", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("name").
 			GroupBy("name").
 			HavingAgg("SUM", "age", ">=", "threshold").
@@ -767,7 +767,7 @@ func TestSelect_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("Having with invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			Fields("age").
 			GroupBy("age").
 			Having("invalid_field", ">", "value").
@@ -778,7 +778,7 @@ func TestSelect_HavingClauses(t *testing.T) {
 	})
 
 	t.Run("HavingAgg with invalid function", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			Fields("age").
 			GroupBy("age").
 			HavingAgg("INVALID_FUNC", "*", ">", "value").
@@ -795,13 +795,13 @@ func TestSelect_WhereBetween(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("WhereBetween", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereBetween("age", "min_age", "max_age").
 			Render()
 		if err != nil {
@@ -820,7 +820,7 @@ func TestSelect_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereNotBetween", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereNotBetween("age", "min_age", "max_age").
 			Render()
 		if err != nil {
@@ -833,7 +833,7 @@ func TestSelect_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("Between condition helper", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereAnd(Between("age", "min_age", "max_age")).
 			Render()
 		if err != nil {
@@ -846,7 +846,7 @@ func TestSelect_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("NotBetween condition helper", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereAnd(NotBetween("age", "min_age", "max_age")).
 			Render()
 		if err != nil {
@@ -859,7 +859,7 @@ func TestSelect_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereBetween invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			WhereBetween("nonexistent", "min", "max").
 			Render()
 		if err == nil {
@@ -868,7 +868,7 @@ func TestSelect_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereBetween empty low param", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			WhereBetween("age", "", "max").
 			Render()
 		if err == nil {
@@ -877,7 +877,7 @@ func TestSelect_WhereBetween(t *testing.T) {
 	})
 
 	t.Run("WhereBetween empty high param", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			WhereBetween("age", "min", "").
 			Render()
 		if err == nil {
@@ -892,13 +892,13 @@ func TestSelect_StringExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectUpper", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectUpper("name", "upper_name").
 			Render()
 		if err != nil {
@@ -914,7 +914,7 @@ func TestSelect_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectLower", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectLower("email", "lower_email").
 			Render()
 		if err != nil {
@@ -927,7 +927,7 @@ func TestSelect_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectLength", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectLength("name", "name_len").
 			Render()
 		if err != nil {
@@ -940,7 +940,7 @@ func TestSelect_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectTrim", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectTrim("name", "trimmed").
 			Render()
 		if err != nil {
@@ -953,7 +953,7 @@ func TestSelect_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectLTrim", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectLTrim("name", "ltrimmed").
 			Render()
 		if err != nil {
@@ -966,7 +966,7 @@ func TestSelect_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectRTrim", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectRTrim("name", "rtrimmed").
 			Render()
 		if err != nil {
@@ -979,7 +979,7 @@ func TestSelect_StringExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectUpper invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectUpper("nonexistent", "alias").
 			Render()
 		if err == nil {
@@ -994,13 +994,13 @@ func TestSelect_MathExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectAbs", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectAbs("age", "abs_age").
 			Render()
 		if err != nil {
@@ -1013,7 +1013,7 @@ func TestSelect_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCeil", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCeil("age", "ceil_age").
 			Render()
 		if err != nil {
@@ -1026,7 +1026,7 @@ func TestSelect_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectFloor", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectFloor("age", "floor_age").
 			Render()
 		if err != nil {
@@ -1039,7 +1039,7 @@ func TestSelect_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectRound", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectRound("age", "round_age").
 			Render()
 		if err != nil {
@@ -1052,7 +1052,7 @@ func TestSelect_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectSqrt", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectSqrt("age", "sqrt_age").
 			Render()
 		if err != nil {
@@ -1065,7 +1065,7 @@ func TestSelect_MathExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectAbs invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectAbs("nonexistent", "alias").
 			Render()
 		if err == nil {
@@ -1080,13 +1080,13 @@ func TestSelect_CastExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectCast to TEXT", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCast("age", CastText, "age_str").
 			Render()
 		if err != nil {
@@ -1102,7 +1102,7 @@ func TestSelect_CastExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCast to INTEGER", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCast("id", CastInteger, "id_int").
 			Render()
 		if err != nil {
@@ -1115,7 +1115,7 @@ func TestSelect_CastExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCast invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCast("nonexistent", CastText, "alias").
 			Render()
 		if err == nil {
@@ -1130,13 +1130,13 @@ func TestSelect_DateExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectNow", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectNow("current_ts").
 			Render()
 		if err != nil {
@@ -1149,7 +1149,7 @@ func TestSelect_DateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCurrentDate", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCurrentDate("today").
 			Render()
 		if err != nil {
@@ -1162,7 +1162,7 @@ func TestSelect_DateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCurrentTime", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCurrentTime("now_time").
 			Render()
 		if err != nil {
@@ -1175,7 +1175,7 @@ func TestSelect_DateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCurrentTimestamp", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCurrentTimestamp("ts").
 			Render()
 		if err != nil {
@@ -1194,13 +1194,13 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SelectCountStar", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCountStar("total").
 			Render()
 		if err != nil {
@@ -1213,7 +1213,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCount", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCount("id", "count_id").
 			Render()
 		if err != nil {
@@ -1226,7 +1226,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCountDistinct", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCountDistinct("email", "unique_emails").
 			Render()
 		if err != nil {
@@ -1242,7 +1242,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectSum", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectSum("age", "age_sum").
 			Render()
 		if err != nil {
@@ -1255,7 +1255,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectAvg", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectAvg("age", "avg_age").
 			Render()
 		if err != nil {
@@ -1268,7 +1268,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectMin", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectMin("age", "min_age").
 			Render()
 		if err != nil {
@@ -1281,7 +1281,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectMax", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectMax("age", "max_age").
 			Render()
 		if err != nil {
@@ -1294,7 +1294,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("SelectCount invalid field", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCount("nonexistent", "alias").
 			Render()
 		if err == nil {
@@ -1303,7 +1303,7 @@ func TestSelect_AggregateExpressions(t *testing.T) {
 	})
 
 	t.Run("combined expression query", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("name").
 			SelectUpper("name", "upper_name").
 			SelectCount("id", "count").
@@ -1331,13 +1331,13 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("simple CASE with single WHEN", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCase().
 			When("age", ">=", "adult_age", "result_adult").
 			Else("result_minor").
@@ -1369,7 +1369,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with multiple WHEN clauses", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCase().
 			When("age", "<", "teen_age", "result_child").
 			When("age", "<", "adult_age", "result_teen").
@@ -1390,7 +1390,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with WhenNull", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCase().
 			WhenNull("age", "result_unknown").
 			Else("result_known").
@@ -1407,7 +1407,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with WhenNotNull", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCase().
 			WhenNotNull("age", "result_has_age").
 			Else("result_no_age").
@@ -1424,7 +1424,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE without ELSE", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCase().
 			When("age", ">=", "adult_age", "result_adult").
 			As("is_adult").
@@ -1440,7 +1440,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE chained with other operations", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Fields("id", "name").
 			SelectCase().
 			When("age", ">=", "adult_age", "result_adult").
@@ -1465,7 +1465,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with invalid field returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCase().
 			When("nonexistent", "=", "val", "result").
 			As("alias").
@@ -1477,7 +1477,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with invalid operator returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCase().
 			When("age", "INVALID", "val", "result").
 			As("alias").
@@ -1489,7 +1489,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with empty param returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCase().
 			When("age", "=", "", "result").
 			As("alias").
@@ -1501,7 +1501,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE with empty result param returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCase().
 			When("age", "=", "val", "").
 			As("alias").
@@ -1513,7 +1513,7 @@ func TestSelect_CaseExpressions(t *testing.T) {
 	})
 
 	t.Run("CASE Else with empty param returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectCase().
 			When("age", "=", "val", "result").
 			Else("").
@@ -1534,13 +1534,13 @@ func TestSelect_WhereFields(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("WhereFields equal", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereFields("id", "=", "age").
 			Render()
 		if err != nil {
@@ -1553,7 +1553,7 @@ func TestSelect_WhereFields(t *testing.T) {
 	})
 
 	t.Run("WhereFields less than", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			WhereFields("id", "<", "age").
 			Render()
 		if err != nil {
@@ -1566,7 +1566,7 @@ func TestSelect_WhereFields(t *testing.T) {
 	})
 
 	t.Run("WhereFields invalid operator", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			WhereFields("id", "INVALID", "age").
 			Render()
 		if err == nil {
@@ -1583,13 +1583,13 @@ func TestSelect_AggregateFilter(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("SumFilter", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectSumFilter("age", "name", "=", "filter_val", "filtered_sum").
 			Render()
 		if err != nil {
@@ -1602,7 +1602,7 @@ func TestSelect_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("AvgFilter", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectAvgFilter("age", "name", "=", "filter_val", "filtered_avg").
 			Render()
 		if err != nil {
@@ -1615,7 +1615,7 @@ func TestSelect_AggregateFilter(t *testing.T) {
 	})
 
 	t.Run("CountFilter", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCountFilter("id", "name", "=", "filter_val", "filtered_count").
 			Render()
 		if err != nil {
@@ -1636,13 +1636,13 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	sentinel.Tag("default")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("RowNumber with OrderBy", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectRowNumber().
 			OrderBy("age", "DESC").
 			As("row_num").
@@ -1661,7 +1661,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Rank with PartitionBy and OrderBy", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectRank().
 			PartitionBy("name").
 			OrderBy("age", "DESC").
@@ -1681,7 +1681,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("DenseRank", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectDenseRank().
 			OrderBy("age", "ASC").
 			As("dense_rank").
@@ -1697,7 +1697,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Lag", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectLag("age", "offset_val").
 			OrderBy("id", "ASC").
 			As("prev_age").
@@ -1713,7 +1713,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Lead", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectLead("age", "offset_val").
 			OrderBy("id", "ASC").
 			As("next_age").
@@ -1729,7 +1729,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("FirstValue", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectFirstValue("age").
 			OrderBy("id", "ASC").
 			As("first_age").
@@ -1745,7 +1745,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("SumOver with PartitionBy", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectSumOver("age").
 			PartitionBy("name").
 			As("running_total").
@@ -1761,7 +1761,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("CountOver", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectCountOver().
 			PartitionBy("name").
 			As("category_count").
@@ -1777,7 +1777,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Window with Frame", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			SelectSumOver("age").
 			OrderBy("id", "ASC").
 			Frame("UNBOUNDED PRECEDING", "CURRENT ROW").
@@ -1794,7 +1794,7 @@ func TestSelect_WindowFunctions(t *testing.T) {
 	})
 
 	t.Run("Invalid frame bound", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			SelectSumOver("age").
 			Frame("INVALID", "CURRENT ROW").
 			As("running_sum").
@@ -1812,13 +1812,13 @@ func TestSelect_OrderByNulls(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("NULLS FIRST", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			OrderByNulls("age", "ASC", "FIRST").
 			Render()
 		if err != nil {
@@ -1833,7 +1833,7 @@ func TestSelect_OrderByNulls(t *testing.T) {
 	})
 
 	t.Run("NULLS LAST", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			OrderByNulls("age", "DESC", "LAST").
 			Render()
 		if err != nil {
@@ -1848,7 +1848,7 @@ func TestSelect_OrderByNulls(t *testing.T) {
 	})
 
 	t.Run("invalid nulls returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			OrderByNulls("age", "ASC", "INVALID").
 			Render()
 		if err == nil {
@@ -1863,13 +1863,13 @@ func TestSelect_DistinctOn(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("DISTINCT ON", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			DistinctOn("name").
 			OrderBy("name", "ASC").
 			Render()
@@ -1885,7 +1885,7 @@ func TestSelect_DistinctOn(t *testing.T) {
 	})
 
 	t.Run("invalid field returns error", func(t *testing.T) {
-		_, err := cereal.Select().
+		_, err := soy.Select().
 			DistinctOn("nonexistent").
 			Render()
 		if err == nil {
@@ -1900,13 +1900,13 @@ func TestSelect_RowLocking(t *testing.T) {
 	sentinel.Tag("constraints")
 
 	db := &sqlx.DB{}
-	cereal, err := New[selectTestUser](db, "users", postgres.New())
+	soy, err := New[selectTestUser](db, "users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	t.Run("FOR UPDATE", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("id", "=", "user_id").
 			ForUpdate().
 			Render()
@@ -1922,7 +1922,7 @@ func TestSelect_RowLocking(t *testing.T) {
 	})
 
 	t.Run("FOR NO KEY UPDATE", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("id", "=", "user_id").
 			ForNoKeyUpdate().
 			Render()
@@ -1938,7 +1938,7 @@ func TestSelect_RowLocking(t *testing.T) {
 	})
 
 	t.Run("FOR SHARE", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("id", "=", "user_id").
 			ForShare().
 			Render()
@@ -1954,7 +1954,7 @@ func TestSelect_RowLocking(t *testing.T) {
 	})
 
 	t.Run("FOR KEY SHARE", func(t *testing.T) {
-		result, err := cereal.Select().
+		result, err := soy.Select().
 			Where("id", "=", "user_id").
 			ForKeyShare().
 			Render()

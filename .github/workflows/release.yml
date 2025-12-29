@@ -103,15 +103,15 @@ jobs:
           sleep 10
 
           # Create a test module
-          mkdir -p /tmp/test-cereal
-          cd /tmp/test-cereal
+          mkdir -p /tmp/test-soy
+          cd /tmp/test-soy
           go mod init test
 
           # Try to get the new version
-          go get github.com/zoobzio/cereal@${{ steps.version.outputs.VERSION }}
+          go get github.com/zoobzio/soy@${{ steps.version.outputs.VERSION }}
 
           # Verify it was fetched
-          go list -m github.com/zoobzio/cereal
+          go list -m github.com/zoobzio/soy
 
       - name: Create release summary
         run: |
@@ -119,11 +119,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### Installation" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "go get github.com/zoobzio/cereal@${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "go get github.com/zoobzio/soy@${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### Release Notes" >> $GITHUB_STEP_SUMMARY
-          echo "View the full release notes at: https://github.com/zoobzio/cereal/releases/tag/${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "View the full release notes at: https://github.com/zoobzio/soy/releases/tag/${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
 
   # Notify about release
   notify:
@@ -149,12 +149,12 @@ jobs:
 
               ### Post-Release Checklist
               - [ ] Verify the release appears correctly on GitHub
-              - [ ] Test installation with \`go get github.com/zoobzio/cereal@${version}\`
+              - [ ] Test installation with \`go get github.com/zoobzio/soy@${version}\`
               - [ ] Consider announcing the release if it contains significant changes
               - [ ] Close any issues/PRs that were addressed in this release
 
               ### Release URL
-              https://github.com/zoobzio/cereal/releases/tag/${version}
+              https://github.com/zoobzio/soy/releases/tag/${version}
 
               ---
               This issue was automatically created by the release workflow.`,

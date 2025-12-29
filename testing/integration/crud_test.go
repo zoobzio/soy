@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/zoobzio/astql/pkg/postgres"
-	"github.com/zoobzio/cereal"
+	"github.com/zoobzio/soy"
 )
 
 func TestInsert_Integration(t *testing.T) {
@@ -13,7 +13,7 @@ func TestInsert_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestSelect_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestQuery_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -328,8 +328,8 @@ func TestQuery_Integration(t *testing.T) {
 		params := map[string]any{"min_age": 28, "max_age": 32}
 		users, err := c.Query().
 			WhereAnd(
-				cereal.C("age", ">=", "min_age"),
-				cereal.C("age", "<=", "max_age"),
+				soy.C("age", ">=", "min_age"),
+				soy.C("age", "<=", "max_age"),
 			).
 			OrderBy("age", "ASC").
 			Exec(ctx, params)
@@ -346,8 +346,8 @@ func TestQuery_Integration(t *testing.T) {
 		params := map[string]any{"young": 25, "old": 35}
 		users, err := c.Query().
 			WhereOr(
-				cereal.C("age", "=", "young"),
-				cereal.C("age", "=", "old"),
+				soy.C("age", "=", "young"),
+				soy.C("age", "=", "old"),
 			).
 			Exec(ctx, params)
 		if err != nil {
@@ -365,7 +365,7 @@ func TestUpdate_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestDelete_Integration(t *testing.T) {
 	defer tdb.cleanup(t)
 	createTestTable(t, tdb.db)
 
-	c, err := cereal.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

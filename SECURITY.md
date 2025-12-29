@@ -11,7 +11,7 @@ We release patches for security vulnerabilities. Which versions are eligible for
 
 ## Reporting a Vulnerability
 
-We take the security of cereal seriously. If you have discovered a security vulnerability in this project, please report it responsibly.
+We take the security of soy seriously. If you have discovered a security vulnerability in this project, please report it responsibly.
 
 ### How to Report
 
@@ -20,7 +20,7 @@ We take the security of cereal seriously. If you have discovered a security vuln
 Instead, please report them via one of the following methods:
 
 1. **GitHub Security Advisories** (Preferred)
-   - Go to the [Security tab](https://github.com/zoobzio/cereal/security) of this repository
+   - Go to the [Security tab](https://github.com/zoobzio/soy/security) of this repository
    - Click "Report a vulnerability"
    - Fill out the form with details about the vulnerability
 
@@ -54,11 +54,11 @@ We prefer all communications to be in English.
 
 ## Security Best Practices
 
-When using cereal in your applications, we recommend:
+When using soy in your applications, we recommend:
 
 1. **Keep Dependencies Updated**
    ```bash
-   go get -u github.com/zoobzio/cereal
+   go get -u github.com/zoobzio/soy
    ```
 
 2. **Use Context Properly**
@@ -67,7 +67,7 @@ When using cereal in your applications, we recommend:
 
 3. **Input Validation**
    - Validate all user inputs before passing to queries
-   - Use parameterized queries (cereal handles this automatically)
+   - Use parameterized queries (soy handles this automatically)
    - Never construct raw SQL from user input
 
 4. **Error Handling**
@@ -82,7 +82,7 @@ When using cereal in your applications, we recommend:
    - Never commit credentials to version control
 
 6. **SQL Injection Protection**
-   - cereal uses parameterized queries via sqlx
+   - soy uses parameterized queries via sqlx
    - All user inputs are properly escaped
    - ASTQL validates query structure at initialization
 
@@ -93,7 +93,7 @@ When using cereal in your applications, we recommend:
 
 ## Security Features
 
-cereal includes several built-in security features:
+soy includes several built-in security features:
 
 - **Type Safety**: Generic types prevent type confusion attacks
 - **SQL Validation**: ASTQL validates all queries against schema
@@ -115,14 +115,14 @@ This project uses:
 
 ### SQL Injection
 
-cereal is designed to prevent SQL injection by:
+soy is designed to prevent SQL injection by:
 1. Validating query structure at initialization
 2. Using parameterized queries for all values
 3. Never concatenating user input into SQL strings
 
 ### Access Control
 
-cereal does not implement access control - this is the responsibility of:
+soy does not implement access control - this is the responsibility of:
 1. Your application layer
 2. Database-level permissions
 3. Row-level security policies

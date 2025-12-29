@@ -1,6 +1,6 @@
-// Package cereal provides a type-safe, schema-validated query builder for PostgreSQL.
+// Package soy provides a type-safe, schema-validated query builder for PostgreSQL.
 //
-// Cereal wraps ASTQL to offer a simplified API for building SQL queries with compile-time
+// Soy wraps ASTQL to offer a simplified API for building SQL queries with compile-time
 // type safety and runtime schema validation. It uses reflection (via Sentinel) once at
 // initialization, then provides a zero-allocation query building API.
 //
@@ -15,9 +15,9 @@
 //	    Age   *int   `db:"age" type:"integer"`
 //	}
 //
-// Create a Cereal instance:
+// Create a Soy instance:
 //
-//	cereal, err := cereal.New[User](db, "users")
+//	soy, err := soy.New[User](db, "users")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -25,12 +25,12 @@
 // Build and execute queries:
 //
 //	// Select single record
-//	user, err := cereal.Select().
+//	user, err := soy.Select().
 //	    Where("email", "=", "user_email").
 //	    Exec(ctx, map[string]any{"user_email": "test@example.com"})
 //
 //	// Query multiple records
-//	users, err := cereal.Query().
+//	users, err := soy.Query().
 //	    Where("age", ">=", "min_age").
 //	    OrderBy("name", "ASC").
 //	    Limit(10).
@@ -38,7 +38,7 @@
 //
 //	// Insert with upsert
 //	user := &User{Email: "test@example.com", Name: "Test"}
-//	inserted, err := cereal.Insert().
+//	inserted, err := soy.Insert().
 //	    OnConflict("email").
 //	    DoUpdate().
 //	    Set("name", "name").
@@ -46,18 +46,18 @@
 //	    Exec(ctx, user)
 //
 //	// Update
-//	updated, err := cereal.Modify().
+//	updated, err := soy.Modify().
 //	    Set("name", "new_name").
 //	    Where("id", "=", "user_id").
 //	    Exec(ctx, map[string]any{"new_name": "John", "user_id": 123})
 //
 //	// Delete
-//	deleted, err := cereal.Remove().
+//	deleted, err := soy.Remove().
 //	    Where("id", "=", "user_id").
 //	    Exec(ctx, map[string]any{"user_id": 123})
 //
 //	// Aggregates
-//	count, err := cereal.Count().
+//	count, err := soy.Count().
 //	    Where("status", "=", "active").
 //	    Exec(ctx, map[string]any{"status": "active"})
 //
@@ -72,7 +72,7 @@
 //   - Complex WHERE conditions with AND/OR grouping
 //   - DBML schema generation from struct tags
 //   - Integration with capitan for structured logging
-package cereal
+package soy
 
 import (
 	"fmt"
@@ -108,9 +108,9 @@ const (
 	CastBytea           CastType = astql.CastBytea
 )
 
-// Cereal provides a type-safe query API for a specific model type.
+// Soy provides a type-safe query API for a specific model type.
 // Each instance holds the ASTQL schema and metadata for building validated queries.
-type Cereal[T any] struct {
+type Soy[T any] struct {
 	db          *sqlx.DB
 	tableName   string
 	metadata    sentinel.Metadata
@@ -118,7 +118,7 @@ type Cereal[T any] struct {
 	sqlRenderer astql.Renderer
 }
 
-// New creates a new Cereal instance for type T with the given database connection, table name, and SQL renderer.
+// New creates a new Soy instance for type T with the given database connection, table name, and SQL renderer.
 // This function performs type inspection via Sentinel and builds the ASTQL schema for validation.
 // All reflection and schema building happens once at initialization, not on the hot path.
 // If db is nil, the instance can still be used for query building but not execution.
@@ -128,13 +128,13 @@ type Cereal[T any] struct {
 //   - mysql.New() for MySQL
 //   - sqlite.New() for SQLite
 //   - mssql.New() for Microsoft SQL Server
-func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Cereal[T], error) {
+func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Soy[T], error) {
 	if tableName == "" {
-		return nil, fmt.Errorf("cereal: table name cannot be empty")
+		return nil, fmt.Errorf("soy: table name cannot be empty")
 	}
 
 	if renderer == nil {
-		return nil, fmt.Errorf("cereal: renderer cannot be nil")
+		return nil, fmt.Errorf("soy: renderer cannot be nil")
 	}
 
 	// Register all tags we use
@@ -152,16 +152,16 @@ func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Cereal
 	// Build DBML from struct metadata
 	project, err := buildDBMLFromStruct(metadata, tableName)
 	if err != nil {
-		return nil, fmt.Errorf("cereal: failed to build DBML: %w", err)
+		return nil, fmt.Errorf("soy: failed to build DBML: %w", err)
 	}
 
 	// Create ASTQL instance for validation
 	instance, err := astql.NewFromDBML(project)
 	if err != nil {
-		return nil, fmt.Errorf("cereal: failed to create ASTQL instance: %w", err)
+		return nil, fmt.Errorf("soy: failed to create ASTQL instance: %w", err)
 	}
 
-	c := &Cereal[T]{
+	c := &Soy[T]{
 		db:          db,
 		tableName:   tableName,
 		metadata:    metadata,
@@ -173,27 +173,27 @@ func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Cereal
 }
 
 // execer returns the database connection for query execution.
-func (c *Cereal[T]) execer() sqlx.ExtContext {
+func (c *Soy[T]) execer() sqlx.ExtContext {
 	return c.db
 }
 
-// TableName returns the table name for this Cereal instance.
-func (c *Cereal[T]) TableName() string {
+// TableName returns the table name for this Soy instance.
+func (c *Soy[T]) TableName() string {
 	return c.tableName
 }
 
 // getTableName returns the table name (for interface implementation).
-func (c *Cereal[T]) getTableName() string {
+func (c *Soy[T]) getTableName() string {
 	return c.tableName
 }
 
 // Metadata returns the Sentinel metadata for type T.
-func (c *Cereal[T]) Metadata() sentinel.Metadata {
+func (c *Soy[T]) Metadata() sentinel.Metadata {
 	return c.metadata
 }
 
 // renderer returns the SQL renderer for query building.
-func (c *Cereal[T]) renderer() astql.Renderer {
+func (c *Soy[T]) renderer() astql.Renderer {
 	return c.sqlRenderer
 }
 
@@ -202,37 +202,37 @@ func (c *Cereal[T]) renderer() astql.Renderer {
 //
 // Example:
 //
-//	instance := cereal.Instance()
+//	instance := soy.Instance()
 //	query := astql.Select(instance.T("users")).
 //	    Fields(instance.F("id"), instance.F("email")).
 //	    Where(instance.C(instance.F("age"), ">=", instance.P("min_age")))
-func (c *Cereal[T]) Instance() *astql.ASTQL {
+func (c *Soy[T]) Instance() *astql.ASTQL {
 	return c.instance
 }
 
 // Select returns a Select for building SELECT queries that return a single record.
-// The  is pre-configured with the table for this Cereal instance
+// The  is pre-configured with the table for this Soy instance
 // and provides a simple string-based API that hides ASTQL complexity.
 //
 // Example with Render (for inspection):
 //
-//	result, err := cereal.Select().
+//	result, err := soy.Select().
 //	    Fields("id", "email", "name").
 //	    Where("id", "=", "user_id").
 //	    Render()
 //
 // Example with Exec (execute and return single T):
 //
-//	user, err := cereal.Select().
+//	user, err := soy.Select().
 //	    Where("email", "=", "user_email").
 //	    Exec(ctx, map[string]any{"user_email": "test@example.com"})
 //
 // For complex queries with AND/OR logic:
 //
-//	user, err := cereal.Select().
+//	user, err := soy.Select().
 //	    WhereAnd(
-//	        cereal.C("age", ">=", "min_age"),
-//	        cereal.C("status", "=", "active"),
+//	        soy.C("age", ">=", "min_age"),
+//	        soy.C("status", "=", "active"),
 //	    ).
 //	    Exec(ctx, params)
 //
@@ -240,14 +240,14 @@ func (c *Cereal[T]) Instance() *astql.ASTQL {
 //
 //	instance := .Instance()
 //	// Use instance.F(), instance.C(), etc. for advanced queries
-func (c *Cereal[T]) Select() *Select[T] {
+func (c *Soy[T]) Select() *Select[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		// Table should always be valid since it was validated in New()
 		// Return  with error stored
 		return &Select[T]{
 			instance: c.instance,
-			cereal:   c,
+			soy:      c,
 			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
 		}
 	}
@@ -257,24 +257,24 @@ func (c *Cereal[T]) Select() *Select[T] {
 	return &Select[T]{
 		instance: c.instance,
 		builder:  builder,
-		cereal:   c,
+		soy:      c,
 	}
 }
 
 // Query returns a Query for building SELECT queries that return multiple records.
-// The  is pre-configured with the table for this Cereal instance
+// The  is pre-configured with the table for this Soy instance
 // and provides a simple string-based API that hides ASTQL complexity.
 //
 // Example (basic query):
 //
-//	users, err := cereal.Query().
+//	users, err := soy.Query().
 //	    Where("age", ">=", "min_age").
 //	    OrderBy("name", "ASC").
 //	    Exec(ctx, map[string]any{"min_age": 18})
 //
 // Example (with pagination):
 //
-//	users, err := cereal.Query().
+//	users, err := soy.Query().
 //	    Where("status", "=", "active").
 //	    OrderBy("created_at", "DESC").
 //	    Limit(10).
@@ -283,20 +283,20 @@ func (c *Cereal[T]) Select() *Select[T] {
 //
 // Example (complex conditions):
 //
-//	users, err := cereal.Query().
+//	users, err := soy.Query().
 //	    WhereAnd(
-//	        cereal.C("age", ">=", "min_age"),
-//	        cereal.C("status", "=", "active"),
+//	        soy.C("age", ">=", "min_age"),
+//	        soy.C("status", "=", "active"),
 //	    ).
 //	    Exec(ctx, params)
-func (c *Cereal[T]) Query() *Query[T] {
+func (c *Soy[T]) Query() *Query[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		// Table should always be valid since it was validated in New()
 		// Return  with error stored
 		return &Query[T]{
 			instance: c.instance,
-			cereal:   c,
+			soy:      c,
 			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
 		}
 	}
@@ -306,25 +306,25 @@ func (c *Cereal[T]) Query() *Query[T] {
 	return &Query[T]{
 		instance: c.instance,
 		builder:  builder,
-		cereal:   c,
+		soy:      c,
 	}
 }
 
 // Count returns an Aggregate for building COUNT queries.
-// The builder is pre-configured with the table for this Cereal instance
+// The builder is pre-configured with the table for this Soy instance
 // and provides a simple string-based API for counting records.
 //
 // Example (count all):
 //
-//	count, err := cereal.Count().Exec(ctx, nil)
+//	count, err := soy.Count().Exec(ctx, nil)
 //
 // Example (count with conditions):
 //
-//	count, err := cereal.Count().
+//	count, err := soy.Count().
 //	    Where("age", ">=", "min_age").
 //	    Where("status", "=", "active").
 //	    Exec(ctx, map[string]any{"min_age": 18, "status": "active"})
-func (c *Cereal[T]) Count() *Aggregate[T] {
+func (c *Soy[T]) Count() *Aggregate[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		// Table should always be valid since it was validated in New()
@@ -332,7 +332,7 @@ func (c *Cereal[T]) Count() *Aggregate[T] {
 		return &Aggregate[T]{
 			agg: &aggregateBuilder[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				funcName: "COUNT",
 				err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
 			},
@@ -352,10 +352,10 @@ func (c *Cereal[T]) Count() *Aggregate[T] {
 //
 // Example:
 //
-//	total, err := cereal.Sum("amount").
+//	total, err := soy.Sum("amount").
 //	    Where("status", "=", "paid").
 //	    Exec(ctx, map[string]any{"status": "paid"})
-func (c *Cereal[T]) Sum(field string) *Aggregate[T] {
+func (c *Soy[T]) Sum(field string) *Aggregate[T] {
 	return c.buildFieldAggregate(field, "SUM")
 }
 
@@ -364,10 +364,10 @@ func (c *Cereal[T]) Sum(field string) *Aggregate[T] {
 //
 // Example:
 //
-//	average, err := cereal.Avg("age").
+//	average, err := soy.Avg("age").
 //	    Where("status", "=", "active").
 //	    Exec(ctx, map[string]any{"status": "active"})
-func (c *Cereal[T]) Avg(field string) *Aggregate[T] {
+func (c *Soy[T]) Avg(field string) *Aggregate[T] {
 	return c.buildFieldAggregate(field, "AVG")
 }
 
@@ -376,10 +376,10 @@ func (c *Cereal[T]) Avg(field string) *Aggregate[T] {
 //
 // Example:
 //
-//	minPrice, err := cereal.Min("price").
+//	minPrice, err := soy.Min("price").
 //	    Where("category", "=", "electronics").
 //	    Exec(ctx, map[string]any{"category": "electronics"})
-func (c *Cereal[T]) Min(field string) *Aggregate[T] {
+func (c *Soy[T]) Min(field string) *Aggregate[T] {
 	return c.buildFieldAggregate(field, "MIN")
 }
 
@@ -388,21 +388,21 @@ func (c *Cereal[T]) Min(field string) *Aggregate[T] {
 //
 // Example:
 //
-//	maxPrice, err := cereal.Max("price").
+//	maxPrice, err := soy.Max("price").
 //	    Where("category", "=", "electronics").
 //	    Exec(ctx, map[string]any{"category": "electronics"})
-func (c *Cereal[T]) Max(field string) *Aggregate[T] {
+func (c *Soy[T]) Max(field string) *Aggregate[T] {
 	return c.buildFieldAggregate(field, "MAX")
 }
 
 // buildFieldAggregate is a helper to build field-based aggregate queries (SUM, AVG, MIN, MAX).
-func (c *Cereal[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
+func (c *Soy[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		return &Aggregate[T]{
 			agg: &aggregateBuilder[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				field:    field,
 				funcName: funcName,
 				err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
@@ -415,7 +415,7 @@ func (c *Cereal[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 		return &Aggregate[T]{
 			agg: &aggregateBuilder[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				field:    field,
 				funcName: funcName,
 				err:      fmt.Errorf("invalid field %q: %w", field, err),
@@ -438,7 +438,7 @@ func (c *Cereal[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 		return &Aggregate[T]{
 			agg: &aggregateBuilder[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				field:    field,
 				funcName: funcName,
 				err:      fmt.Errorf("unsupported aggregate function: %s", funcName),
@@ -452,28 +452,28 @@ func (c *Cereal[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 }
 
 // Insert returns a Create for building INSERT queries.
-// The  is pre-configured to insert into the table for this Cereal instance
+// The  is pre-configured to insert into the table for this Soy instance
 // and automatically sets up VALUES from the struct fields and RETURNING all columns.
 //
 // Example (simple insert):
 //
 //	user := &User{Email: "test@example.com", Name: "Test"}
-//	inserted, err := cereal.Insert().Exec(ctx, user)
+//	inserted, err := soy.Insert().Exec(ctx, user)
 //
 // Example (upsert with ON CONFLICT):
 //
 //	user := &User{Email: "test@example.com", Name: "Test"}
-//	inserted, err := cereal.Insert().
+//	inserted, err := soy.Insert().
 //	    OnConflict("email").
 //	    DoUpdate().
 //	    Set("name", "name").
 //	    Exec(ctx, user)
-func (c *Cereal[T]) Insert() *Create[T] {
+func (c *Soy[T]) Insert() *Create[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		return &Create[T]{
 			instance: c.instance,
-			cereal:   c,
+			soy:      c,
 			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
 		}
 	}
@@ -497,7 +497,7 @@ func (c *Cereal[T]) Insert() *Create[T] {
 		if err != nil {
 			return &Create[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
 			}
 		}
@@ -506,7 +506,7 @@ func (c *Cereal[T]) Insert() *Create[T] {
 		if err != nil {
 			return &Create[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				err:      fmt.Errorf("invalid param %q: %w", dbCol, err),
 			}
 		}
@@ -526,7 +526,7 @@ func (c *Cereal[T]) Insert() *Create[T] {
 		if err != nil {
 			return &Create[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
 			}
 		}
@@ -537,12 +537,12 @@ func (c *Cereal[T]) Insert() *Create[T] {
 	return &Create[T]{
 		instance: c.instance,
 		builder:  builder,
-		cereal:   c,
+		soy:      c,
 	}
 }
 
 // Modify returns an Update for building UPDATE queries.
-// The  is pre-configured with the table for this Cereal instance
+// The  is pre-configured with the table for this Soy instance
 // and automatically adds RETURNING for all columns.
 //
 // IMPORTANT: You must add at least one WHERE condition to prevent accidental full-table updates.
@@ -554,17 +554,17 @@ func (c *Cereal[T]) Insert() *Create[T] {
 //	    "new_age": 30,
 //	    "user_id": 123,
 //	}
-//	updated, err := cereal.Modify().
+//	updated, err := soy.Modify().
 //	    Set("name", "new_name").
 //	    Set("age", "new_age").
 //	    Where("id", "=", "user_id").
 //	    Exec(ctx, params)
-func (c *Cereal[T]) Modify() *Update[T] {
+func (c *Soy[T]) Modify() *Update[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		return &Update[T]{
 			instance: c.instance,
-			cereal:   c,
+			soy:      c,
 			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
 		}
 	}
@@ -582,7 +582,7 @@ func (c *Cereal[T]) Modify() *Update[T] {
 		if err != nil {
 			return &Update[T]{
 				instance: c.instance,
-				cereal:   c,
+				soy:      c,
 				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
 			}
 		}
@@ -593,27 +593,27 @@ func (c *Cereal[T]) Modify() *Update[T] {
 	return &Update[T]{
 		instance: c.instance,
 		builder:  builder,
-		cereal:   c,
+		soy:      c,
 	}
 }
 
 // Remove returns a Delete for building DELETE queries.
-// The  is pre-configured with the table for this Cereal instance.
+// The  is pre-configured with the table for this Soy instance.
 //
 // IMPORTANT: You must add at least one WHERE condition to prevent accidental full-table deletes.
 //
 // Example:
 //
 //	params := map[string]any{"user_id": 123}
-//	rowsDeleted, err := cereal.Remove().
+//	rowsDeleted, err := soy.Remove().
 //	    Where("id", "=", "user_id").
 //	    Exec(ctx, params)
-func (c *Cereal[T]) Remove() *Delete[T] {
+func (c *Soy[T]) Remove() *Delete[T] {
 	t, err := c.instance.TryT(c.tableName)
 	if err != nil {
 		return &Delete[T]{
 			instance: c.instance,
-			cereal:   c,
+			soy:      c,
 			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
 		}
 	}
@@ -623,7 +623,7 @@ func (c *Cereal[T]) Remove() *Delete[T] {
 	return &Delete[T]{
 		instance: c.instance,
 		builder:  builder,
-		cereal:   c,
+		soy:      c,
 	}
 }
 
