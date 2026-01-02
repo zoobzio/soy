@@ -11,9 +11,10 @@ require (
 	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
 	github.com/zoobzio/astql v0.1.0
+	github.com/zoobzio/atom v0.0.5
 	github.com/zoobzio/capitan v0.1.0
 	github.com/zoobzio/dbml v0.1.0
-	github.com/zoobzio/sentinel v0.1.1
+	github.com/zoobzio/sentinel v0.1.4
 )
 
 require (

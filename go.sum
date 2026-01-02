@@ -132,12 +132,14 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/zoobzio/astql v0.1.0 h1:8LUnTR+qWW7h3ZYx16pJg+WXHYsrPgquLQy0kRHkzE0=
 github.com/zoobzio/astql v0.1.0/go.mod h1:XM5O+kffv4C3SR/WTiplmXzmOAOiPW/jKupZPwmdAPU=
+github.com/zoobzio/atom v0.0.5 h1:giKVM4QmRQmUSyHZdno3GjffR+Li0OsMzmy05YyJ2N0=
+github.com/zoobzio/atom v0.0.5/go.mod h1:HHY37U+TJqrp4PL43wrj1CsskyXylnhpHBF2JCn9CEY=
 github.com/zoobzio/capitan v0.1.0 h1:OmTmZNtUhoIDIA7sQ50x9CP21JJUYkqZFyavY6torMA=
 github.com/zoobzio/capitan v0.1.0/go.mod h1:/OwNDIB1CHxwSzsF4e48B2+2e/IMIvTb0ZMgVeNyYig=
 github.com/zoobzio/dbml v0.1.0 h1:KqFniJBmxVlq6rvxnCmKoZvUB7q3GnqMdQbXF49BRtM=
 github.com/zoobzio/dbml v0.1.0/go.mod h1:CAX7TEjn+UPdwPrtJGBG23sXPfoNA246tqztDR3iV7Y=
-github.com/zoobzio/sentinel v0.1.1 h1:V5js35LJ34WtBEYH2yqh4lYoEyULLWcjFgppVoJ5vYY=
-github.com/zoobzio/sentinel v0.1.1/go.mod h1:SbQpbfte5YTTUCKHF+s6XYdvg5Dh94MKjR7Qwuuw5Xo=
+github.com/zoobzio/sentinel v0.1.4 h1:FvxnFUsf51mN6S9PElVSO8SAm4WR8IwMEwsaUz+JyBk=
+github.com/zoobzio/sentinel v0.1.4/go.mod h1:gtsD0AYlTEI8ajpEQ3azb7BDZicdsESOB1dJpQqgDKc=
 go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
 go.opentelemetry.io/auto/sdk v1.1.0/go.mod h1:3wSPjt5PWp2RhlCcmmOial7AvC4DQqZb7a7wCow3W8A=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 h1:jq9TW8u3so/bN+JPT166wjOI6/vQPF6Xe7nMNIltagk=

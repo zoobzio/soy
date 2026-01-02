@@ -206,6 +206,56 @@ func TestExec_Insert(t *testing.T) {
 			t.Error("expected ID to be set")
 		}
 	})
+
+	t.Run("Insert.ExecAtom", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		atom, err := c.Insert().ExecAtom(ctx, map[string]any{
+			"email": "insertatom@example.com",
+			"name":  "Insert Atom User",
+			"age":   40,
+		})
+		if err != nil {
+			t.Fatalf("Insert().ExecAtom() failed: %v", err)
+		}
+
+		if atom.Ints["ID"] == 0 {
+			t.Error("expected ID to be set")
+		}
+		if atom.Strings["Email"] != "insertatom@example.com" {
+			t.Errorf("expected email insertatom@example.com, got %s", atom.Strings["Email"])
+		}
+		if atom.IntPtrs["Age"] == nil || *atom.IntPtrs["Age"] != 40 {
+			t.Errorf("expected age 40, got %v", atom.IntPtrs["Age"])
+		}
+	})
+
+	t.Run("Insert.ExecTxAtom", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+
+		atom, err := c.Insert().ExecTxAtom(ctx, tx, map[string]any{
+			"email": "txatom@example.com",
+			"name":  "TX Atom User",
+			"age":   45,
+		})
+		if err != nil {
+			tx.Rollback()
+			t.Fatalf("Insert().ExecTxAtom() failed: %v", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit() failed: %v", err)
+		}
+
+		if atom.Ints["ID"] == 0 {
+			t.Error("expected ID to be set")
+		}
+	})
 }
 
 func TestExec_Select(t *testing.T) {
@@ -277,6 +327,67 @@ func TestExec_Select(t *testing.T) {
 
 		tx.Commit()
 	})
+
+	t.Run("Select.ExecAtom", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &execTestUser{
+			Email: "selectatom@example.com",
+			Name:  "Select Atom User",
+			Age:   intPtrExec(35),
+		})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		atom, err := c.Select().
+			Where("email", "=", "email").
+			ExecAtom(ctx, map[string]any{"email": "selectatom@example.com"})
+		if err != nil {
+			t.Fatalf("Select().ExecAtom() failed: %v", err)
+		}
+
+		if atom.Strings["Name"] != "Select Atom User" {
+			t.Errorf("expected name Select Atom User, got %s", atom.Strings["Name"])
+		}
+		if atom.IntPtrs["Age"] == nil || *atom.IntPtrs["Age"] != 35 {
+			t.Errorf("expected age 35, got %v", atom.IntPtrs["Age"])
+		}
+	})
+
+	t.Run("Select.ExecTxAtom", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &execTestUser{
+			Email: "selecttxatom@example.com",
+			Name:  "Select TX Atom User",
+			Age:   intPtrExec(36),
+		})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+		defer tx.Rollback()
+
+		atom, err := c.Select().
+			Where("email", "=", "email").
+			ExecTxAtom(ctx, tx, map[string]any{"email": "selecttxatom@example.com"})
+		if err != nil {
+			t.Fatalf("Select().ExecTxAtom() failed: %v", err)
+		}
+
+		if atom.Strings["Name"] != "Select TX Atom User" {
+			t.Errorf("expected name Select TX Atom User, got %s", atom.Strings["Name"])
+		}
+
+		tx.Commit()
+	})
 }
 
 func TestExec_Query(t *testing.T) {
@@ -342,6 +453,73 @@ func TestExec_Query(t *testing.T) {
 
 		if len(users) != 1 {
 			t.Errorf("expected 1 user, got %d", len(users))
+		}
+
+		tx.Commit()
+	})
+
+	t.Run("Query.ExecAtom", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// Insert test data
+		for i, email := range []string{"atom1@example.com", "atom2@example.com"} {
+			_, err := c.Insert().Exec(ctx, &execTestUser{
+				Email: email,
+				Name:  "Atom User",
+				Age:   intPtrExec(20 + i*5),
+			})
+			if err != nil {
+				t.Fatalf("Insert failed: %v", err)
+			}
+		}
+
+		atoms, err := c.Query().OrderBy("email", "asc").ExecAtom(ctx, nil)
+		if err != nil {
+			t.Fatalf("Query().ExecAtom() failed: %v", err)
+		}
+
+		if len(atoms) != 2 {
+			t.Fatalf("expected 2 atoms, got %d", len(atoms))
+		}
+
+		if atoms[0].Strings["Email"] != "atom1@example.com" {
+			t.Errorf("expected first email atom1@example.com, got %s", atoms[0].Strings["Email"])
+		}
+		if atoms[1].IntPtrs["Age"] == nil || *atoms[1].IntPtrs["Age"] != 25 {
+			t.Errorf("expected second age 25, got %v", atoms[1].IntPtrs["Age"])
+		}
+	})
+
+	t.Run("Query.ExecTxAtom", func(t *testing.T) {
+		truncateExecTestTable(t, tdb.db)
+
+		// Insert test data
+		_, err := c.Insert().Exec(ctx, &execTestUser{
+			Email: "querytxatom@example.com",
+			Name:  "Query TX Atom User",
+			Age:   intPtrExec(50),
+		})
+		if err != nil {
+			t.Fatalf("Insert failed: %v", err)
+		}
+
+		tx, err := tdb.db.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() failed: %v", err)
+		}
+		defer tx.Rollback()
+
+		atoms, err := c.Query().ExecTxAtom(ctx, tx, nil)
+		if err != nil {
+			t.Fatalf("Query().ExecTxAtom() failed: %v", err)
+		}
+
+		if len(atoms) != 1 {
+			t.Fatalf("expected 1 atom, got %d", len(atoms))
+		}
+
+		if atoms[0].Strings["Name"] != "Query TX Atom User" {
+			t.Errorf("expected name Query TX Atom User, got %s", atoms[0].Strings["Name"])
 		}
 
 		tx.Commit()

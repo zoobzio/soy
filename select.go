@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/astql"
+	"github.com/zoobzio/atom"
 	"github.com/zoobzio/capitan"
 )
 
@@ -16,6 +17,7 @@ type soyExecutor interface {
 	execer() sqlx.ExtContext
 	getTableName() string
 	renderer() astql.Renderer
+	atomScanner() *atom.Scanner
 }
 
 // Select provides a focused API for building SELECT queries that return a single record.
@@ -1034,6 +1036,49 @@ func (sb *Select[T]) Exec(ctx context.Context, params map[string]any) (*T, error
 //	tx.Commit()
 func (sb *Select[T]) ExecTx(ctx context.Context, tx *sqlx.Tx, params map[string]any) (*T, error) {
 	return sb.exec(ctx, tx, params)
+}
+
+// ExecAtom executes the SELECT query and returns a single result as an Atom.
+// This method enables type-erased execution where T is not known at consumption time.
+// Returns an error if zero rows or more than one row is found.
+//
+// Example:
+//
+//	atom, err := soy.Select().
+//	    Where("email", "=", "user_email").
+//	    ExecAtom(ctx, map[string]any{"user_email": "test@example.com"})
+func (sb *Select[T]) ExecAtom(ctx context.Context, params map[string]any) (*atom.Atom, error) {
+	return sb.execAtom(ctx, sb.soy.execer(), params)
+}
+
+// ExecTxAtom executes the SELECT query within a transaction and returns a single result as an Atom.
+// This method enables type-erased execution where T is not known at consumption time.
+// Returns an error if zero rows or more than one row is found.
+//
+// Example:
+//
+//	tx, _ := db.BeginTxx(ctx, nil)
+//	defer tx.Rollback()
+//	atom, err := soy.Select().
+//	    Where("email", "=", "user_email").
+//	    ExecTxAtom(ctx, tx, map[string]any{"user_email": "test@example.com"})
+//	tx.Commit()
+func (sb *Select[T]) ExecTxAtom(ctx context.Context, tx *sqlx.Tx, params map[string]any) (*atom.Atom, error) {
+	return sb.execAtom(ctx, tx, params)
+}
+
+// execAtom is the internal atom execution method used by both ExecAtom and ExecTxAtom.
+func (sb *Select[T]) execAtom(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*atom.Atom, error) {
+	if sb.err != nil {
+		return nil, fmt.Errorf("select builder has errors: %w", sb.err)
+	}
+
+	result, err := sb.Render()
+	if err != nil {
+		return nil, fmt.Errorf("failed to render query: %w", err)
+	}
+
+	return execAtomSingleRow(ctx, execer, sb.soy.atomScanner(), result.SQL, params, sb.soy.getTableName(), "SELECT")
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.

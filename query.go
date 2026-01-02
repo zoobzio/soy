@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/astql"
+	"github.com/zoobzio/atom"
 )
 
 // Query provides a focused API for building SELECT queries that return multiple records.
@@ -1002,6 +1003,47 @@ func (qb *Query[T]) Exec(ctx context.Context, params map[string]any) ([]*T, erro
 //	tx.Commit()
 func (qb *Query[T]) ExecTx(ctx context.Context, tx *sqlx.Tx, params map[string]any) ([]*T, error) {
 	return qb.exec(ctx, tx, params)
+}
+
+// ExecAtom executes the SELECT query and returns all results as Atoms.
+// This method enables type-erased execution where T is not known at consumption time.
+//
+// Example:
+//
+//	atoms, err := soy.Query().
+//	    Where("age", ">=", "min_age").
+//	    ExecAtom(ctx, map[string]any{"min_age": 18})
+func (qb *Query[T]) ExecAtom(ctx context.Context, params map[string]any) ([]*atom.Atom, error) {
+	return qb.execAtom(ctx, qb.soy.execer(), params)
+}
+
+// ExecTxAtom executes the SELECT query within a transaction and returns all results as Atoms.
+// This method enables type-erased execution where T is not known at consumption time.
+//
+// Example:
+//
+//	tx, _ := db.BeginTxx(ctx, nil)
+//	defer tx.Rollback()
+//	atoms, err := soy.Query().
+//	    Where("age", ">=", "min_age").
+//	    ExecTxAtom(ctx, tx, params)
+//	tx.Commit()
+func (qb *Query[T]) ExecTxAtom(ctx context.Context, tx *sqlx.Tx, params map[string]any) ([]*atom.Atom, error) {
+	return qb.execAtom(ctx, tx, params)
+}
+
+// execAtom is the internal atom execution method used by both ExecAtom and ExecTxAtom.
+func (qb *Query[T]) execAtom(ctx context.Context, execer sqlx.ExtContext, params map[string]any) ([]*atom.Atom, error) {
+	if qb.err != nil {
+		return nil, fmt.Errorf("query builder has errors: %w", qb.err)
+	}
+
+	result, err := qb.builder.Render(qb.soy.renderer())
+	if err != nil {
+		return nil, fmt.Errorf("failed to render SELECT query: %w", err)
+	}
+
+	return execAtomMultipleRows(ctx, execer, qb.soy.atomScanner(), result.SQL, params, qb.soy.getTableName(), "QUERY")
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.

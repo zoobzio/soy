@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/astql"
+	"github.com/zoobzio/atom"
 	"github.com/zoobzio/capitan"
 )
 
@@ -71,6 +72,43 @@ func (cb *Create[T]) Exec(ctx context.Context, record *T) (*T, error) {
 // ExecTx executes the INSERT query within a transaction.
 func (cb *Create[T]) ExecTx(ctx context.Context, tx *sqlx.Tx, record *T) (*T, error) {
 	return cb.exec(ctx, tx, record)
+}
+
+// ExecAtom executes the INSERT query and returns the inserted record as an Atom.
+// This method enables type-erased execution where T is not known at consumption time.
+//
+// Example:
+//
+//	atom, err := soy.Insert().ExecAtom(ctx, map[string]any{"email": "test@example.com", "name": "Test"})
+func (cb *Create[T]) ExecAtom(ctx context.Context, params map[string]any) (*atom.Atom, error) {
+	return cb.execAtom(ctx, cb.soy.execer(), params)
+}
+
+// ExecTxAtom executes the INSERT query within a transaction and returns the inserted record as an Atom.
+// This method enables type-erased execution where T is not known at consumption time.
+//
+// Example:
+//
+//	tx, _ := db.BeginTxx(ctx, nil)
+//	defer tx.Rollback()
+//	atom, err := soy.Insert().ExecTxAtom(ctx, tx, map[string]any{"email": "test@example.com"})
+//	tx.Commit()
+func (cb *Create[T]) ExecTxAtom(ctx context.Context, tx *sqlx.Tx, params map[string]any) (*atom.Atom, error) {
+	return cb.execAtom(ctx, tx, params)
+}
+
+// execAtom is the internal atom execution method used by both ExecAtom and ExecTxAtom.
+func (cb *Create[T]) execAtom(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*atom.Atom, error) {
+	if cb.err != nil {
+		return nil, fmt.Errorf("create builder has errors: %w", cb.err)
+	}
+
+	result, err := cb.builder.Render(cb.soy.renderer())
+	if err != nil {
+		return nil, fmt.Errorf("failed to render INSERT query: %w", err)
+	}
+
+	return execAtomSingleRow(ctx, execer, cb.soy.atomScanner(), result.SQL, params, cb.soy.getTableName(), "INSERT")
 }
 
 // ExecBatch executes the INSERT query for multiple records.

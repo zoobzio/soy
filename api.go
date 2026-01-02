@@ -80,6 +80,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/astql"
+	"github.com/zoobzio/atom"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -116,6 +117,7 @@ type Soy[T any] struct {
 	metadata    sentinel.Metadata
 	instance    *astql.ASTQL
 	sqlRenderer astql.Renderer
+	scanner     *atom.Scanner
 }
 
 // New creates a new Soy instance for type T with the given database connection, table name, and SQL renderer.
@@ -161,12 +163,23 @@ func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Soy[T]
 		return nil, fmt.Errorf("soy: failed to create ASTQL instance: %w", err)
 	}
 
+	// Register type with atom and get scanner for direct atom scanning
+	atomizer, err := atom.Use[T]()
+	if err != nil {
+		return nil, fmt.Errorf("soy: failed to register with atom: %w", err)
+	}
+	scanner, ok := atom.ScannerFor(atomizer.Spec())
+	if !ok {
+		return nil, fmt.Errorf("soy: failed to build atom scanner for type %s", metadata.TypeName)
+	}
+
 	c := &Soy[T]{
 		db:          db,
 		tableName:   tableName,
 		metadata:    metadata,
 		instance:    instance,
 		sqlRenderer: renderer,
+		scanner:     scanner,
 	}
 
 	return c, nil
@@ -195,6 +208,11 @@ func (c *Soy[T]) Metadata() sentinel.Metadata {
 // renderer returns the SQL renderer for query building.
 func (c *Soy[T]) renderer() astql.Renderer {
 	return c.sqlRenderer
+}
+
+// atomScanner returns the atom scanner for direct atom scanning.
+func (c *Soy[T]) atomScanner() *atom.Scanner {
+	return c.scanner
 }
 
 // Instance returns the underlying ASTQL instance for advanced query building.
