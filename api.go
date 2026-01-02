@@ -112,7 +112,7 @@ const (
 // Soy provides a type-safe query API for a specific model type.
 // Each instance holds the ASTQL schema and metadata for building validated queries.
 type Soy[T any] struct {
-	db          *sqlx.DB
+	db          sqlx.ExtContext
 	tableName   string
 	metadata    sentinel.Metadata
 	instance    *astql.ASTQL
@@ -125,12 +125,15 @@ type Soy[T any] struct {
 // All reflection and schema building happens once at initialization, not on the hot path.
 // If db is nil, the instance can still be used for query building but not execution.
 //
+// The db parameter accepts sqlx.ExtContext, which is satisfied by both *sqlx.DB and *sqlx.Tx,
+// enabling transaction support by passing a transaction instead of a database connection.
+//
 // Available renderers from astql/pkg:
 //   - postgres.New() for PostgreSQL
 //   - mysql.New() for MySQL
 //   - sqlite.New() for SQLite
 //   - mssql.New() for Microsoft SQL Server
-func New[T any](db *sqlx.DB, tableName string, renderer astql.Renderer) (*Soy[T], error) {
+func New[T any](db sqlx.ExtContext, tableName string, renderer astql.Renderer) (*Soy[T], error) {
 	if tableName == "" {
 		return nil, fmt.Errorf("soy: table name cannot be empty")
 	}
