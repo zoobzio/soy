@@ -9,6 +9,7 @@ import (
 	"github.com/zoobzio/astql"
 	"github.com/zoobzio/atom"
 	"github.com/zoobzio/capitan"
+	"github.com/zoobzio/sentinel"
 )
 
 // soyExecutor provides the interface for executing queries.
@@ -18,6 +19,8 @@ type soyExecutor interface {
 	getTableName() string
 	renderer() astql.Renderer
 	atomScanner() *atom.Scanner
+	getMetadata() sentinel.Metadata
+	getInstance() *astql.ASTQL
 }
 
 // Select provides a focused API for building SELECT queries that return a single record.

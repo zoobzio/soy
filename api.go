@@ -218,6 +218,16 @@ func (c *Soy[T]) atomScanner() *atom.Scanner {
 	return c.scanner
 }
 
+// getMetadata returns the Sentinel metadata for type T.
+func (c *Soy[T]) getMetadata() sentinel.Metadata {
+	return c.metadata
+}
+
+// getInstance returns the ASTQL instance.
+func (c *Soy[T]) getInstance() *astql.ASTQL {
+	return c.instance
+}
+
 // Instance returns the underlying ASTQL instance for advanced query building.
 // Use this escape hatch when you need ASTQL features not exposed by the s.
 //

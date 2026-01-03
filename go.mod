@@ -10,7 +10,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
-	github.com/zoobzio/astql v0.1.2
+	github.com/zoobzio/astql v0.1.4
 	github.com/zoobzio/atom v0.0.5
 	github.com/zoobzio/capitan v0.1.0
 	github.com/zoobzio/dbml v0.1.0
@@ -68,6 +68,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250929231259-57b25ae835d4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250929231259-57b25ae835d4 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

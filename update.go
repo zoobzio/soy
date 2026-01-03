@@ -14,11 +14,12 @@ import (
 // It wraps ASTQL's UPDATE functionality with a simple string-based interface.
 // Use this for updating existing records in the database.
 type Update[T any] struct {
-	instance *astql.ASTQL
-	builder  *astql.Builder
-	soy      soyExecutor // interface for execution
-	hasWhere bool        // tracks if WHERE was called
-	err      error       // stores first error encountered during building
+	instance   *astql.ASTQL
+	builder    *astql.Builder
+	soy        soyExecutor           // interface for execution
+	hasWhere   bool                  // tracks if WHERE was called
+	whereItems []astql.ConditionItem // tracks WHERE conditions for fallback SELECT
+	err        error                 // stores first error encountered during building
 }
 
 // Set specifies a field to update with a parameter value.
@@ -65,13 +66,14 @@ func (ub *Update[T]) Where(field, operator, param string) *Update[T] {
 	}
 
 	wb := newWhereBuilder(ub.instance, ub.builder)
-	builder, err := wb.addWhere(field, operator, param)
+	builder, cond, err := wb.addWhereWithCondition(field, operator, param)
 	if err != nil {
 		ub.err = err
 		return ub
 	}
 
 	ub.builder = builder
+	ub.whereItems = append(ub.whereItems, cond)
 	ub.hasWhere = true
 	return ub
 }
@@ -110,6 +112,7 @@ func (ub *Update[T]) WhereAnd(conditions ...Condition) *Update[T] {
 	}
 
 	ub.builder = ub.builder.Where(andGroup)
+	ub.whereItems = append(ub.whereItems, andGroup)
 	ub.hasWhere = true
 	return ub
 }
@@ -148,6 +151,7 @@ func (ub *Update[T]) WhereOr(conditions ...Condition) *Update[T] {
 	}
 
 	ub.builder = ub.builder.Where(orGroup)
+	ub.whereItems = append(ub.whereItems, orGroup)
 	ub.hasWhere = true
 	return ub
 }
@@ -171,6 +175,7 @@ func (ub *Update[T]) WhereNull(field string) *Update[T] {
 	}
 
 	ub.builder = ub.builder.Where(condition)
+	ub.whereItems = append(ub.whereItems, condition)
 	ub.hasWhere = true
 	return ub
 }
@@ -194,6 +199,7 @@ func (ub *Update[T]) WhereNotNull(field string) *Update[T] {
 	}
 
 	ub.builder = ub.builder.Where(condition)
+	ub.whereItems = append(ub.whereItems, condition)
 	ub.hasWhere = true
 	return ub
 }
@@ -228,7 +234,9 @@ func (ub *Update[T]) WhereBetween(field, lowParam, highParam string) *Update[T] 
 		return ub
 	}
 
-	ub.builder = ub.builder.Where(astql.Between(f, lowP, highP))
+	condition := astql.Between(f, lowP, highP)
+	ub.builder = ub.builder.Where(condition)
+	ub.whereItems = append(ub.whereItems, condition)
 	ub.hasWhere = true
 	return ub
 }
@@ -263,7 +271,9 @@ func (ub *Update[T]) WhereNotBetween(field, lowParam, highParam string) *Update[
 		return ub
 	}
 
-	ub.builder = ub.builder.Where(astql.NotBetween(f, lowP, highP))
+	condition := astql.NotBetween(f, lowP, highP)
+	ub.builder = ub.builder.Where(condition)
+	ub.whereItems = append(ub.whereItems, condition)
 	ub.hasWhere = true
 	return ub
 }
@@ -328,10 +338,11 @@ func (ub *Update[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, batc
 }
 
 // exec is the internal execution method used by both Exec and ExecTx.
+// It checks renderer capabilities and routes to the appropriate execution strategy.
 func (ub *Update[T]) exec(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*T, error) {
-	// Check for  errors first
+	// Check for errors first
 	if ub.err != nil {
-		return nil, fmt.Errorf("update  has errors: %w", ub.err)
+		return nil, fmt.Errorf("update builder has errors: %w", ub.err)
 	}
 
 	// Safety check: require WHERE clause
@@ -339,6 +350,16 @@ func (ub *Update[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 		return nil, fmt.Errorf("UPDATE requires at least one WHERE condition to prevent accidental full-table update")
 	}
 
+	// Check capabilities and route to appropriate execution strategy
+	caps := ub.soy.renderer().Capabilities()
+	if caps.ReturningOnUpdate {
+		return ub.execWithReturning(ctx, execer, params)
+	}
+	return ub.execThenSelect(ctx, execer, params)
+}
+
+// execWithReturning executes UPDATE with RETURNING clause (PostgreSQL, SQLite, MSSQL).
+func (ub *Update[T]) execWithReturning(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*T, error) {
 	// Render the query
 	result, err := ub.builder.Render(ub.soy.renderer())
 	if err != nil {
@@ -416,6 +437,170 @@ func (ub *Update[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 	)
 
 	return &updated, nil
+}
+
+// execThenSelect executes UPDATE without RETURNING, then SELECTs the updated row (MariaDB fallback).
+func (ub *Update[T]) execThenSelect(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*T, error) {
+	// Render the UPDATE query (RETURNING will be omitted by renderer)
+	result, err := ub.builder.Render(ub.soy.renderer())
+	if err != nil {
+		return nil, fmt.Errorf("failed to render UPDATE query: %w", err)
+	}
+
+	tableName := ub.soy.getTableName()
+	capitan.Debug(ctx, QueryStarted,
+		TableKey.Field(tableName),
+		OperationKey.Field("UPDATE"),
+		SQLKey.Field(result.SQL),
+	)
+
+	startTime := time.Now()
+
+	// Execute UPDATE without expecting rows back
+	res, err := sqlx.NamedExecContext(ctx, execer, result.SQL, params)
+	if err != nil {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("UPDATE"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field(err.Error()),
+		)
+		return nil, fmt.Errorf("UPDATE failed: %w", err)
+	}
+
+	// Verify exactly one row was affected
+	affected, err := res.RowsAffected()
+	if err != nil {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("UPDATE"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field(err.Error()),
+		)
+		return nil, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if affected == 0 {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("UPDATE"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field("no rows updated"),
+		)
+		return nil, fmt.Errorf("no rows updated")
+	}
+
+	if affected > 1 {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("UPDATE"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field("expected exactly one row updated, found multiple"),
+		)
+		return nil, fmt.Errorf("expected exactly one row updated, found %d", affected)
+	}
+
+	// Build and execute SELECT to fetch the updated row
+	selectBuilder, err := ub.buildFallbackSelect()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build fallback SELECT: %w", err)
+	}
+
+	selectResult, err := selectBuilder.Render(ub.soy.renderer())
+	if err != nil {
+		return nil, fmt.Errorf("failed to render fallback SELECT: %w", err)
+	}
+
+	capitan.Debug(ctx, QueryStarted,
+		TableKey.Field(tableName),
+		OperationKey.Field("SELECT (UPDATE fallback)"),
+		SQLKey.Field(selectResult.SQL),
+	)
+
+	rows, err := sqlx.NamedQueryContext(ctx, execer, selectResult.SQL, params)
+	if err != nil {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("SELECT (UPDATE fallback)"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field(err.Error()),
+		)
+		return nil, fmt.Errorf("fallback SELECT failed: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	if !rows.Next() {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("SELECT (UPDATE fallback)"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field("fallback SELECT returned no rows"),
+		)
+		return nil, fmt.Errorf("fallback SELECT returned no rows")
+	}
+
+	var updated T
+	if err := rows.StructScan(&updated); err != nil {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("SELECT (UPDATE fallback)"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field(err.Error()),
+		)
+		return nil, fmt.Errorf("failed to scan fallback SELECT result: %w", err)
+	}
+
+	// Emit query completed event
+	durationMs := time.Since(startTime).Milliseconds()
+	capitan.Info(ctx, QueryCompleted,
+		TableKey.Field(tableName),
+		OperationKey.Field("UPDATE"),
+		DurationMsKey.Field(durationMs),
+		RowsAffectedKey.Field(1),
+	)
+
+	return &updated, nil
+}
+
+// buildFallbackSelect builds a SELECT query using the same WHERE conditions as the UPDATE.
+func (ub *Update[T]) buildFallbackSelect() (*astql.Builder, error) {
+	tableName := ub.soy.getTableName()
+	t, err := ub.instance.TryT(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("invalid table %q: %w", tableName, err)
+	}
+
+	builder := astql.Select(t)
+
+	// Collect all fields from metadata
+	metadata := ub.soy.getMetadata()
+	fieldSlice := ub.instance.Fields()
+	for _, field := range metadata.Fields {
+		dbCol := field.Tags["db"]
+		if dbCol == "" || dbCol == "-" {
+			continue
+		}
+		f, err := ub.instance.TryF(dbCol)
+		if err != nil {
+			return nil, fmt.Errorf("invalid field %q: %w", dbCol, err)
+		}
+		fieldSlice = append(fieldSlice, f)
+	}
+	builder = builder.Fields(fieldSlice...)
+
+	// Add stored WHERE conditions
+	for _, cond := range ub.whereItems {
+		builder = builder.Where(cond)
+	}
+
+	return builder, nil
 }
 
 // Render builds and renders the query to SQL with parameter placeholders.

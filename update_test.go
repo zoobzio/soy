@@ -376,6 +376,157 @@ func TestUpdate_BatchOperations(t *testing.T) {
 	})
 }
 
+func TestUpdate_FallbackSelect(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[updateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("buildFallbackSelect with single Where", func(t *testing.T) {
+		builder := soy.Modify().
+			Set("name", "new_name").
+			Where("id", "=", "user_id")
+
+		selectBuilder, err := builder.buildFallbackSelect()
+		if err != nil {
+			t.Fatalf("buildFallbackSelect() failed: %v", err)
+		}
+
+		result, err := selectBuilder.Render(postgres.New())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "SELECT") {
+			t.Errorf("SQL missing SELECT: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":user_id") {
+			t.Errorf("SQL missing user_id param: %s", result.SQL)
+		}
+
+		t.Logf("Fallback SELECT SQL: %s", result.SQL)
+	})
+
+	t.Run("buildFallbackSelect with multiple Where (AND)", func(t *testing.T) {
+		builder := soy.Modify().
+			Set("name", "new_name").
+			Where("id", "=", "user_id").
+			Where("email", "=", "user_email")
+
+		selectBuilder, err := builder.buildFallbackSelect()
+		if err != nil {
+			t.Fatalf("buildFallbackSelect() failed: %v", err)
+		}
+
+		result, err := selectBuilder.Render(postgres.New())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":user_id") {
+			t.Errorf("SQL missing user_id param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":user_email") {
+			t.Errorf("SQL missing user_email param: %s", result.SQL)
+		}
+
+		t.Logf("Fallback SELECT SQL: %s", result.SQL)
+	})
+
+	t.Run("buildFallbackSelect with WhereAnd", func(t *testing.T) {
+		builder := soy.Modify().
+			Set("name", "new_name").
+			WhereAnd(
+				C("age", ">=", "min_age"),
+				C("age", "<=", "max_age"),
+			)
+
+		selectBuilder, err := builder.buildFallbackSelect()
+		if err != nil {
+			t.Fatalf("buildFallbackSelect() failed: %v", err)
+		}
+
+		result, err := selectBuilder.Render(postgres.New())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		t.Logf("Fallback SELECT SQL: %s", result.SQL)
+	})
+
+	t.Run("buildFallbackSelect with WhereOr", func(t *testing.T) {
+		builder := soy.Modify().
+			Set("name", "new_name").
+			WhereOr(
+				C("age", "<", "young_age"),
+				C("age", ">", "old_age"),
+			)
+
+		selectBuilder, err := builder.buildFallbackSelect()
+		if err != nil {
+			t.Fatalf("buildFallbackSelect() failed: %v", err)
+		}
+
+		result, err := selectBuilder.Render(postgres.New())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "OR") {
+			t.Errorf("SQL missing OR: %s", result.SQL)
+		}
+
+		t.Logf("Fallback SELECT SQL: %s", result.SQL)
+	})
+
+	t.Run("buildFallbackSelect includes all fields", func(t *testing.T) {
+		builder := soy.Modify().
+			Set("name", "new_name").
+			Where("id", "=", "user_id")
+
+		selectBuilder, err := builder.buildFallbackSelect()
+		if err != nil {
+			t.Fatalf("buildFallbackSelect() failed: %v", err)
+		}
+
+		result, err := selectBuilder.Render(postgres.New())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		// Should include all fields from the struct
+		if !strings.Contains(result.SQL, `"id"`) {
+			t.Errorf("SQL missing id field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"email"`) {
+			t.Errorf("SQL missing email field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"name"`) {
+			t.Errorf("SQL missing name field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"age"`) {
+			t.Errorf("SQL missing age field: %s", result.SQL)
+		}
+
+		t.Logf("Fallback SELECT SQL: %s", result.SQL)
+	})
+}
+
 func TestUpdate_ErrorPaths(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
