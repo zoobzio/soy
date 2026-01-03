@@ -49,7 +49,7 @@ You get:
 - **Schema validation** — field names checked against struct tags at initialization
 - **Type-safe results** — queries return `*User` or `[]*User`, not `interface{}`
 - **Zero reflection on hot path** — all introspection happens once at startup
-- **Multi-database support** — same API for PostgreSQL, MySQL, SQLite, SQL Server
+- **Multi-database support** — same API for PostgreSQL, MariaDB, SQLite, SQL Server
 
 ## Features
 
@@ -61,7 +61,7 @@ You get:
 - **Window functions** — ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, and more
 - **CASE expressions** — fluent API for conditional SQL expressions
 - **Compound queries** — UNION, INTERSECT, EXCEPT for combining result sets
-- **Multi-database** — PostgreSQL, MySQL, SQLite, SQL Server via ASTQL providers
+- **Multi-database** — PostgreSQL, MariaDB, SQLite, SQL Server via ASTQL providers
 
 ## Use Cases
 
@@ -168,13 +168,13 @@ Use the appropriate provider for your database:
 ```go
 import (
     "github.com/zoobzio/astql/pkg/postgres"
-    "github.com/zoobzio/astql/pkg/mysql"
+    "github.com/zoobzio/astql/pkg/mariadb"
     "github.com/zoobzio/astql/pkg/sqlite"
     "github.com/zoobzio/astql/pkg/mssql"
 )
 
 users, _ := soy.New[User](db, "users", postgres.New())  // PostgreSQL
-users, _ := soy.New[User](db, "users", mysql.New())     // MySQL
+users, _ := soy.New[User](db, "users", mariadb.New())   // MariaDB
 users, _ := soy.New[User](db, "users", sqlite.New())    // SQLite
 users, _ := soy.New[User](db, "users", mssql.New())     // SQL Server
 ```

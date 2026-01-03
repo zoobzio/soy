@@ -130,8 +130,8 @@ github.com/tklauser/numcpus v0.6.1 h1:ng9scYS7az0Bk4OZLvrNXNSAO2Pxr1XXRAPyjhIx+F
 github.com/tklauser/numcpus v0.6.1/go.mod h1:1XfjsgE2zo8GVw7POkMbHENHzVg3GzmoZ9fESEdAacY=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/zoobzio/astql v0.1.0 h1:8LUnTR+qWW7h3ZYx16pJg+WXHYsrPgquLQy0kRHkzE0=
-github.com/zoobzio/astql v0.1.0/go.mod h1:XM5O+kffv4C3SR/WTiplmXzmOAOiPW/jKupZPwmdAPU=
+github.com/zoobzio/astql v0.1.2 h1:se/kLDzfPwsGdfHK332v3TiJ0GKOHQSgCFrpy70FaQY=
+github.com/zoobzio/astql v0.1.2/go.mod h1:uYVX7ZWTQiwxeiSAJcPY09/bT7d8g3Y/urLN/l3OglA=
 github.com/zoobzio/atom v0.0.5 h1:giKVM4QmRQmUSyHZdno3GjffR+Li0OsMzmy05YyJ2N0=
 github.com/zoobzio/atom v0.0.5/go.mod h1:HHY37U+TJqrp4PL43wrj1CsskyXylnhpHBF2JCn9CEY=
 github.com/zoobzio/capitan v0.1.0 h1:OmTmZNtUhoIDIA7sQ50x9CP21JJUYkqZFyavY6torMA=

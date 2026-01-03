@@ -130,7 +130,7 @@ type Soy[T any] struct {
 //
 // Available renderers from astql/pkg:
 //   - postgres.New() for PostgreSQL
-//   - mysql.New() for MySQL
+//   - mariadb.New() for MariaDB
 //   - sqlite.New() for SQLite
 //   - mssql.New() for Microsoft SQL Server
 func New[T any](db sqlx.ExtContext, tableName string, renderer astql.Renderer) (*Soy[T], error) {
@@ -537,6 +537,87 @@ func (c *Soy[T]) Insert() *Create[T] {
 	builder = builder.Values(values)
 
 	// Add RETURNING for all columns (to get generated PKs, defaults, etc.)
+	for _, field := range c.metadata.Fields {
+		dbCol := field.Tags["db"]
+		if dbCol == "" || dbCol == "-" {
+			continue
+		}
+
+		f, err := c.instance.TryF(dbCol)
+		if err != nil {
+			return &Create[T]{
+				instance: c.instance,
+				soy:      c,
+				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+			}
+		}
+
+		builder = builder.Returning(f)
+	}
+
+	return &Create[T]{
+		instance: c.instance,
+		builder:  builder,
+		soy:      c,
+	}
+}
+
+// InsertFull returns a Create for building INSERT queries that include primary key columns.
+// Use this for upserts where you need to specify the primary key value for ON CONFLICT matching.
+//
+// Example (upsert with specified PK):
+//
+//	user := &User{ID: 123, Email: "test@example.com", Name: "Test"}
+//	upserted, err := soy.InsertFull().
+//	    OnConflict("id").
+//	    DoUpdate().
+//	    Set("name", "name").
+//	    Set("email", "email").
+//	    Build().
+//	    Exec(ctx, user)
+func (c *Soy[T]) InsertFull() *Create[T] {
+	t, err := c.instance.TryT(c.tableName)
+	if err != nil {
+		return &Create[T]{
+			instance: c.instance,
+			soy:      c,
+			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+		}
+	}
+
+	builder := astql.Insert(t)
+
+	// Build VALUES map including ALL columns (including PK)
+	values := c.instance.ValueMap()
+	for _, field := range c.metadata.Fields {
+		dbCol := field.Tags["db"]
+		if dbCol == "" || dbCol == "-" {
+			continue
+		}
+
+		f, err := c.instance.TryF(dbCol)
+		if err != nil {
+			return &Create[T]{
+				instance: c.instance,
+				soy:      c,
+				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+			}
+		}
+
+		p, err := c.instance.TryP(dbCol)
+		if err != nil {
+			return &Create[T]{
+				instance: c.instance,
+				soy:      c,
+				err:      fmt.Errorf("invalid param %q: %w", dbCol, err),
+			}
+		}
+
+		values[f] = p
+	}
+	builder = builder.Values(values)
+
+	// Add RETURNING for all columns
 	for _, field := range c.metadata.Fields {
 		dbCol := field.Tags["db"]
 		if dbCol == "" || dbCol == "-" {
