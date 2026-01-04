@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql/pkg/mariadb"
 	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
@@ -674,6 +675,71 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 		}
 		if !strings.Contains(result.SQL, "IS NOT NULL") {
 			t.Errorf("SQL missing IS NOT NULL: %s", result.SQL)
+		}
+	})
+}
+
+func TestUpdate_DialectCapabilities(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+
+	t.Run("PostgreSQL UPDATE includes RETURNING", func(t *testing.T) {
+		soy, err := New[updateTestUser](db, "users", postgres.New())
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+
+		result, err := soy.Modify().
+			Set("name", "new_name").
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "RETURNING") {
+			t.Errorf("PostgreSQL UPDATE should include RETURNING: %s", result.SQL)
+		}
+
+		t.Logf("PostgreSQL SQL: %s", result.SQL)
+	})
+
+	t.Run("MariaDB UPDATE excludes RETURNING", func(t *testing.T) {
+		soy, err := New[updateTestUser](db, "users", mariadb.New())
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+
+		result, err := soy.Modify().
+			Set("name", "new_name").
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		// MariaDB doesn't support RETURNING on UPDATE (MDEV-5092)
+		if strings.Contains(result.SQL, "RETURNING") {
+			t.Errorf("MariaDB UPDATE should NOT include RETURNING: %s", result.SQL)
+		}
+
+		t.Logf("MariaDB SQL: %s", result.SQL)
+	})
+
+	t.Run("capability check determines RETURNING inclusion", func(t *testing.T) {
+		// PostgreSQL has ReturningOnUpdate = true
+		pgCaps := postgres.New().Capabilities()
+		if !pgCaps.ReturningOnUpdate {
+			t.Error("PostgreSQL should support ReturningOnUpdate")
+		}
+
+		// MariaDB has ReturningOnUpdate = false
+		mariaCaps := mariadb.New().Capabilities()
+		if mariaCaps.ReturningOnUpdate {
+			t.Error("MariaDB should NOT support ReturningOnUpdate")
 		}
 	})
 }

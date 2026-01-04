@@ -683,23 +683,26 @@ func (c *Soy[T]) Modify() *Update[T] {
 
 	builder := astql.Update(t)
 
-	// Add RETURNING for all columns (to get updated values)
-	for _, field := range c.metadata.Fields {
-		dbCol := field.Tags["db"]
-		if dbCol == "" || dbCol == "-" {
-			continue
-		}
-
-		f, err := c.instance.TryF(dbCol)
-		if err != nil {
-			return &Update[T]{
-				instance: c.instance,
-				soy:      c,
-				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+	// Only add RETURNING if the renderer supports it (e.g., PostgreSQL, SQLite, MSSQL).
+	// MariaDB doesn't support RETURNING on UPDATE, so exec() will use a fallback SELECT.
+	if c.renderer().Capabilities().ReturningOnUpdate {
+		for _, field := range c.metadata.Fields {
+			dbCol := field.Tags["db"]
+			if dbCol == "" || dbCol == "-" {
+				continue
 			}
-		}
 
-		builder = builder.Returning(f)
+			f, err := c.instance.TryF(dbCol)
+			if err != nil {
+				return &Update[T]{
+					instance: c.instance,
+					soy:      c,
+					err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+				}
+			}
+
+			builder = builder.Returning(f)
+		}
 	}
 
 	return &Update[T]{

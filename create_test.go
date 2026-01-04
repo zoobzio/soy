@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql/pkg/mariadb"
+	"github.com/zoobzio/astql/pkg/mssql"
 	"github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/sentinel"
 )
@@ -300,6 +302,87 @@ func TestCreate_BatchOperations(t *testing.T) {
 		}
 
 		t.Logf("Batch upsert SQL: %s", result.SQL)
+	})
+}
+
+func TestCreate_DialectCapabilities(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+
+	t.Run("MSSQL rejects ON CONFLICT at render time", func(t *testing.T) {
+		// MSSQL doesn't support ON CONFLICT natively
+		mssqlRenderer := mssql.New()
+		soy, err := New[createTestUser](db, "users", mssqlRenderer)
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+
+		// Attempting to render ON CONFLICT should fail for MSSQL
+		_, err = soy.Insert().
+			OnConflict("email").
+			DoNothing().
+			Render()
+		if err == nil {
+			t.Error("expected error for ON CONFLICT with MSSQL renderer")
+		}
+		if !strings.Contains(err.Error(), "ON CONFLICT") && !strings.Contains(err.Error(), "upsert") {
+			t.Errorf("error should mention ON CONFLICT or upsert: %v", err)
+		}
+	})
+
+	t.Run("MariaDB supports ON CONFLICT via ON DUPLICATE KEY", func(t *testing.T) {
+		mariaRenderer := mariadb.New()
+		soy, err := New[createTestUser](db, "users", mariaRenderer)
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+
+		result, err := soy.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("name", "name").
+			Build().
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		// MariaDB uses ON DUPLICATE KEY UPDATE instead of ON CONFLICT
+		if !strings.Contains(result.SQL, "ON DUPLICATE KEY UPDATE") {
+			t.Errorf("SQL should use ON DUPLICATE KEY UPDATE: %s", result.SQL)
+		}
+
+		t.Logf("MariaDB SQL: %s", result.SQL)
+	})
+
+	t.Run("conflict tracking fields populated", func(t *testing.T) {
+		soy, err := New[createTestUser](db, "users", postgres.New())
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+
+		builder := soy.Insert().
+			OnConflict("email", "name").
+			DoUpdate().
+			Set("age", "age").
+			Build()
+
+		// Verify internal tracking fields are populated
+		if !builder.hasConflict {
+			t.Error("hasConflict should be true after OnConflict()")
+		}
+		if len(builder.conflictColumns) != 2 {
+			t.Errorf("conflictColumns should have 2 entries, got %d", len(builder.conflictColumns))
+		}
+		if len(builder.updateFields) != 1 {
+			t.Errorf("updateFields should have 1 entry, got %d", len(builder.updateFields))
+		}
+		if builder.updateFields["age"] != "age" {
+			t.Errorf("updateFields[age] should be 'age', got %q", builder.updateFields["age"])
+		}
 	})
 }
 
