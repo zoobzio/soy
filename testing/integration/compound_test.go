@@ -9,11 +9,9 @@ import (
 )
 
 func TestCompound_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -21,7 +19,7 @@ func TestCompound_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert test data
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 	testUsers := []*TestUser{
 		{Email: "alice@example.com", Name: "Alice", Age: intPtr(25)},
 		{Email: "bob@example.com", Name: "Bob", Age: intPtr(30)},

@@ -3,96 +3,15 @@ package integration
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 	astqlpg "github.com/zoobzio/astql/pkg/postgres"
 	"github.com/zoobzio/soy"
 )
 
-// TestVectorWithPgvector is a model for pgvector tests.
-type TestVectorWithPgvector struct {
-	ID        int    `db:"id" type:"serial" constraints:"primarykey"`
-	Name      string `db:"name" type:"text" constraints:"notnull"`
-	Embedding string `db:"embedding" type:"vector(3)"` // 3-dimensional vector
-}
-
-// setupPgvectorDB creates a PostgreSQL container with pgvector extension.
-func setupPgvectorDB(t *testing.T) *testDB {
-	t.Helper()
-	ctx := context.Background()
-
-	// Use pgvector image instead of standard postgres
-	pgContainer, err := postgres.Run(ctx,
-		"pgvector/pgvector:pg16",
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("test"),
-		postgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(30*time.Second),
-		),
-	)
-	if err != nil {
-		t.Fatalf("failed to start pgvector container: %v", err)
-	}
-
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("failed to get connection string: %v", err)
-	}
-
-	db, err := sqlx.Connect("postgres", connStr)
-	if err != nil {
-		t.Fatalf("failed to connect to database: %v", err)
-	}
-
-	// Enable pgvector extension
-	_, err = db.Exec(`CREATE EXTENSION IF NOT EXISTS vector`)
-	if err != nil {
-		t.Fatalf("failed to create vector extension: %v", err)
-	}
-
-	return &testDB{
-		db:        db,
-		container: pgContainer,
-	}
-}
-
-// createVectorTestTable creates a table with a vector column.
-func createVectorTestTable(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS test_vectors (
-			id SERIAL PRIMARY KEY,
-			name TEXT NOT NULL,
-			embedding vector(3)
-		)
-	`)
-	if err != nil {
-		t.Fatalf("failed to create vector table: %v", err)
-	}
-}
-
-// truncateVectorTestTable clears the vector test table.
-func truncateVectorTestTable(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	_, err := db.Exec(`TRUNCATE TABLE test_vectors RESTART IDENTITY`)
-	if err != nil {
-		t.Fatalf("failed to truncate vector table: %v", err)
-	}
-}
-
 func TestPgvector_Integration(t *testing.T) {
-	tdb := setupPgvectorDB(t)
-	defer tdb.cleanup(t)
-	createVectorTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestVectorWithPgvector](tdb.db, "test_vectors", astqlpg.New())
+	c, err := soy.New[TestVectorWithPgvector](db, "test_vectors", astqlpg.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -100,10 +19,10 @@ func TestPgvector_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("insert vectors", func(t *testing.T) {
-		truncateVectorTestTable(t, tdb.db)
+		truncateVectorTestTable(t, db)
 
 		// Insert vectors directly using raw SQL since soy may not handle vector syntax
-		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('origin', '[0,0,0]'),
 			('unit_x', '[1,0,0]'),
 			('unit_y', '[0,1,0]'),
@@ -125,10 +44,10 @@ func TestPgvector_Integration(t *testing.T) {
 	})
 
 	t.Run("query vectors", func(t *testing.T) {
-		truncateVectorTestTable(t, tdb.db)
+		truncateVectorTestTable(t, db)
 
 		// Insert test vectors
-		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('origin', '[0,0,0]'),
 			('unit_x', '[1,0,0]'),
 			('unit_y', '[0,1,0]'),
@@ -150,10 +69,10 @@ func TestPgvector_Integration(t *testing.T) {
 	})
 
 	t.Run("order by L2 distance", func(t *testing.T) {
-		truncateVectorTestTable(t, tdb.db)
+		truncateVectorTestTable(t, db)
 
 		// Insert test vectors
-		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('origin', '[0,0,0]'),
 			('unit_x', '[1,0,0]'),
 			('far', '[10,10,10]')
@@ -188,10 +107,10 @@ func TestPgvector_Integration(t *testing.T) {
 	})
 
 	t.Run("order by cosine distance", func(t *testing.T) {
-		truncateVectorTestTable(t, tdb.db)
+		truncateVectorTestTable(t, db)
 
 		// Insert test vectors
-		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('positive_x', '[1,0,0]'),
 			('positive_y', '[0,1,0]'),
 			('negative_x', '[-1,0,0]'),
@@ -228,10 +147,10 @@ func TestPgvector_Integration(t *testing.T) {
 	})
 
 	t.Run("order by L2 distance with LIMIT", func(t *testing.T) {
-		truncateVectorTestTable(t, tdb.db)
+		truncateVectorTestTable(t, db)
 
 		// Insert test vectors
-		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('v1', '[0,0,0]'),
 			('v2', '[1,0,0]'),
 			('v3', '[2,0,0]'),
@@ -264,10 +183,10 @@ func TestPgvector_Integration(t *testing.T) {
 	})
 
 	t.Run("order by inner product distance", func(t *testing.T) {
-		truncateVectorTestTable(t, tdb.db)
+		truncateVectorTestTable(t, db)
 
 		// Insert test vectors
-		_, err := tdb.db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
 			('small', '[1,1,1]'),
 			('medium', '[2,2,2]'),
 			('large', '[3,3,3]')

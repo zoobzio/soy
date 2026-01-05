@@ -135,11 +135,11 @@ type Soy[T any] struct {
 //   - mssql.New() for Microsoft SQL Server
 func New[T any](db sqlx.ExtContext, tableName string, renderer astql.Renderer) (*Soy[T], error) {
 	if tableName == "" {
-		return nil, fmt.Errorf("soy: table name cannot be empty")
+		return nil, ErrEmptyTableName
 	}
 
 	if renderer == nil {
-		return nil, fmt.Errorf("soy: renderer cannot be nil")
+		return nil, ErrNilRenderer
 	}
 
 	// Register all tags we use
@@ -279,7 +279,7 @@ func (c *Soy[T]) Select() *Select[T] {
 		return &Select[T]{
 			instance: c.instance,
 			soy:      c,
-			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+			err:      newTableError(c.tableName, err),
 		}
 	}
 
@@ -328,7 +328,7 @@ func (c *Soy[T]) Query() *Query[T] {
 		return &Query[T]{
 			instance: c.instance,
 			soy:      c,
-			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+			err:      newTableError(c.tableName, err),
 		}
 	}
 
@@ -365,7 +365,7 @@ func (c *Soy[T]) Count() *Aggregate[T] {
 				instance: c.instance,
 				soy:      c,
 				funcName: "COUNT",
-				err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+				err:      newTableError(c.tableName, err),
 			},
 		}
 	}
@@ -436,7 +436,7 @@ func (c *Soy[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 				soy:      c,
 				field:    field,
 				funcName: funcName,
-				err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+				err:      newTableError(c.tableName, err),
 			},
 		}
 	}
@@ -449,7 +449,7 @@ func (c *Soy[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 				soy:      c,
 				field:    field,
 				funcName: funcName,
-				err:      fmt.Errorf("invalid field %q: %w", field, err),
+				err:      newFieldError(field, err),
 			},
 		}
 	}
@@ -472,7 +472,7 @@ func (c *Soy[T]) buildFieldAggregate(field, funcName string) *Aggregate[T] {
 				soy:      c,
 				field:    field,
 				funcName: funcName,
-				err:      fmt.Errorf("unsupported aggregate function: %s", funcName),
+				err:      newAggregateFuncError(funcName),
 			},
 		}
 	}
@@ -505,7 +505,7 @@ func (c *Soy[T]) Insert() *Create[T] {
 		return &Create[T]{
 			instance: c.instance,
 			soy:      c,
-			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+			err:      newTableError(c.tableName, err),
 		}
 	}
 
@@ -529,7 +529,7 @@ func (c *Soy[T]) Insert() *Create[T] {
 			return &Create[T]{
 				instance: c.instance,
 				soy:      c,
-				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+				err:      newFieldError(dbCol, err),
 			}
 		}
 
@@ -538,7 +538,7 @@ func (c *Soy[T]) Insert() *Create[T] {
 			return &Create[T]{
 				instance: c.instance,
 				soy:      c,
-				err:      fmt.Errorf("invalid param %q: %w", dbCol, err),
+				err:      newParamError(dbCol, err),
 			}
 		}
 
@@ -558,7 +558,7 @@ func (c *Soy[T]) Insert() *Create[T] {
 			return &Create[T]{
 				instance: c.instance,
 				soy:      c,
-				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+				err:      newFieldError(dbCol, err),
 			}
 		}
 
@@ -591,7 +591,7 @@ func (c *Soy[T]) InsertFull() *Create[T] {
 		return &Create[T]{
 			instance: c.instance,
 			soy:      c,
-			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+			err:      newTableError(c.tableName, err),
 		}
 	}
 
@@ -610,7 +610,7 @@ func (c *Soy[T]) InsertFull() *Create[T] {
 			return &Create[T]{
 				instance: c.instance,
 				soy:      c,
-				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+				err:      newFieldError(dbCol, err),
 			}
 		}
 
@@ -619,7 +619,7 @@ func (c *Soy[T]) InsertFull() *Create[T] {
 			return &Create[T]{
 				instance: c.instance,
 				soy:      c,
-				err:      fmt.Errorf("invalid param %q: %w", dbCol, err),
+				err:      newParamError(dbCol, err),
 			}
 		}
 
@@ -639,7 +639,7 @@ func (c *Soy[T]) InsertFull() *Create[T] {
 			return &Create[T]{
 				instance: c.instance,
 				soy:      c,
-				err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+				err:      newFieldError(dbCol, err),
 			}
 		}
 
@@ -677,7 +677,7 @@ func (c *Soy[T]) Modify() *Update[T] {
 		return &Update[T]{
 			instance: c.instance,
 			soy:      c,
-			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+			err:      newTableError(c.tableName, err),
 		}
 	}
 
@@ -697,7 +697,7 @@ func (c *Soy[T]) Modify() *Update[T] {
 				return &Update[T]{
 					instance: c.instance,
 					soy:      c,
-					err:      fmt.Errorf("invalid field %q: %w", dbCol, err),
+					err:      newFieldError(dbCol, err),
 				}
 			}
 
@@ -729,7 +729,7 @@ func (c *Soy[T]) Remove() *Delete[T] {
 		return &Delete[T]{
 			instance: c.instance,
 			soy:      c,
-			err:      fmt.Errorf("invalid table %q: %w", c.tableName, err),
+			err:      newTableError(c.tableName, err),
 		}
 	}
 

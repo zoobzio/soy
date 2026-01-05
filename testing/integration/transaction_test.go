@@ -9,11 +9,9 @@ import (
 )
 
 func TestTransactionEdgeCases_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -21,9 +19,9 @@ func TestTransactionEdgeCases_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("rollback after partial success", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -66,9 +64,9 @@ func TestTransactionEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("multiple operations in single transaction", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -143,7 +141,7 @@ func TestTransactionEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("delete within transaction", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert data outside transaction
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -155,7 +153,7 @@ func TestTransactionEdgeCases_Integration(t *testing.T) {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -191,11 +189,9 @@ func TestTransactionEdgeCases_Integration(t *testing.T) {
 }
 
 func TestTransaction_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -203,9 +199,9 @@ func TestTransaction_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful transaction", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -254,9 +250,9 @@ func TestTransaction_Integration(t *testing.T) {
 	})
 
 	t.Run("rolled back transaction", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -287,7 +283,7 @@ func TestTransaction_Integration(t *testing.T) {
 	})
 
 	t.Run("transaction with query", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert some data outside transaction
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -299,7 +295,7 @@ func TestTransaction_Integration(t *testing.T) {
 			t.Fatalf("failed to insert: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -329,11 +325,9 @@ func TestTransaction_Integration(t *testing.T) {
 }
 
 func TestExecBatchTx_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -341,7 +335,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Update ExecBatchTx success", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		_, err := c.Insert().Exec(ctx, &TestUser{Email: "user1@example.com", Name: "User 1", Age: intPtr(25)})
@@ -353,7 +347,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -393,7 +387,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 	})
 
 	t.Run("Update ExecBatchTx rollback", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		_, err := c.Insert().Exec(ctx, &TestUser{Email: "user1@example.com", Name: "User 1", Age: intPtr(25)})
@@ -401,7 +395,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -435,7 +429,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 	})
 
 	t.Run("Delete ExecBatchTx success", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		_, err := c.Insert().Exec(ctx, &TestUser{Email: "delete1@example.com", Name: "Delete 1", Age: intPtr(25)})
@@ -451,7 +445,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -488,7 +482,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 	})
 
 	t.Run("Delete ExecBatchTx rollback", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		_, err := c.Insert().Exec(ctx, &TestUser{Email: "user1@example.com", Name: "User 1", Age: intPtr(25)})
@@ -496,7 +490,7 @@ func TestExecBatchTx_Integration(t *testing.T) {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}

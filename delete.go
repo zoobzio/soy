@@ -74,7 +74,7 @@ func (db *Delete[T]) WhereAnd(conditions ...Condition) *Delete[T] {
 
 	andGroup, err := db.instance.TryAnd(conditionItems...)
 	if err != nil {
-		db.err = fmt.Errorf("invalid AND condition: %w", err)
+		db.err = newConditionError(err)
 		return db
 	}
 
@@ -112,7 +112,7 @@ func (db *Delete[T]) WhereOr(conditions ...Condition) *Delete[T] {
 
 	orGroup, err := db.instance.TryOr(conditionItems...)
 	if err != nil {
-		db.err = fmt.Errorf("invalid OR condition: %w", err)
+		db.err = newConditionError(err)
 		return db
 	}
 
@@ -129,13 +129,13 @@ func (db *Delete[T]) WhereNull(field string) *Delete[T] {
 
 	f, err := db.instance.TryF(field)
 	if err != nil {
-		db.err = fmt.Errorf("invalid field %q: %w", field, err)
+		db.err = newFieldError(field, err)
 		return db
 	}
 
 	condition, err := db.instance.TryNull(f)
 	if err != nil {
-		db.err = fmt.Errorf("invalid NULL condition: %w", err)
+		db.err = newConditionError(err)
 		return db
 	}
 
@@ -152,13 +152,13 @@ func (db *Delete[T]) WhereNotNull(field string) *Delete[T] {
 
 	f, err := db.instance.TryF(field)
 	if err != nil {
-		db.err = fmt.Errorf("invalid field %q: %w", field, err)
+		db.err = newFieldError(field, err)
 		return db
 	}
 
 	condition, err := db.instance.TryNotNull(f)
 	if err != nil {
-		db.err = fmt.Errorf("invalid NOT NULL condition: %w", err)
+		db.err = newConditionError(err)
 		return db
 	}
 
@@ -181,7 +181,7 @@ func (db *Delete[T]) WhereBetween(field, lowParam, highParam string) *Delete[T] 
 
 	f, err := db.instance.TryF(field)
 	if err != nil {
-		db.err = fmt.Errorf("invalid field %q: %w", field, err)
+		db.err = newFieldError(field, err)
 		return db
 	}
 
@@ -216,7 +216,7 @@ func (db *Delete[T]) WhereNotBetween(field, lowParam, highParam string) *Delete[
 
 	f, err := db.instance.TryF(field)
 	if err != nil {
-		db.err = fmt.Errorf("invalid field %q: %w", field, err)
+		db.err = newFieldError(field, err)
 		return db
 	}
 

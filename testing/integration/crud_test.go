@@ -9,11 +9,9 @@ import (
 )
 
 func TestInsert_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -21,7 +19,7 @@ func TestInsert_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("insert single record", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		record := &TestUser{
 			Email: "test@example.com",
@@ -49,7 +47,7 @@ func TestInsert_Integration(t *testing.T) {
 	})
 
 	t.Run("insert with ON CONFLICT DO NOTHING", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert first record
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -83,7 +81,7 @@ func TestInsert_Integration(t *testing.T) {
 	})
 
 	t.Run("insert with ON CONFLICT DO UPDATE", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert first record
 		original, err := c.Insert().Exec(ctx, &TestUser{
@@ -128,7 +126,7 @@ func TestInsert_Integration(t *testing.T) {
 	})
 
 	t.Run("insert batch", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		records := []*TestUser{
 			{Email: "batch1@example.com", Name: "Batch User 1", Age: intPtr(20)},
@@ -156,11 +154,9 @@ func TestInsert_Integration(t *testing.T) {
 }
 
 func TestSelect_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -168,7 +164,7 @@ func TestSelect_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert test data
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 	testUsers := []*TestUser{
 		{Email: "user1@example.com", Name: "User One", Age: intPtr(25)},
 		{Email: "user2@example.com", Name: "User Two", Age: intPtr(30)},
@@ -233,11 +229,9 @@ func TestSelect_Integration(t *testing.T) {
 }
 
 func TestQuery_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -245,7 +239,7 @@ func TestQuery_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert test data
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 	testUsers := []*TestUser{
 		{Email: "alice@example.com", Name: "Alice", Age: intPtr(25)},
 		{Email: "bob@example.com", Name: "Bob", Age: intPtr(30)},
@@ -361,11 +355,9 @@ func TestQuery_Integration(t *testing.T) {
 }
 
 func TestUpdate_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -373,7 +365,7 @@ func TestUpdate_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("update single record", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -411,7 +403,7 @@ func TestUpdate_Integration(t *testing.T) {
 	})
 
 	t.Run("update batch", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		batchInsert := []*TestUser{
@@ -447,7 +439,7 @@ func TestUpdate_Integration(t *testing.T) {
 	})
 
 	t.Run("update no matching rows", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		params := map[string]any{
 			"user_email": "nonexistent@example.com",
@@ -468,11 +460,9 @@ func TestUpdate_Integration(t *testing.T) {
 }
 
 func TestDelete_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -480,7 +470,7 @@ func TestDelete_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("delete single record", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		testUsers := []*TestUser{
@@ -514,7 +504,7 @@ func TestDelete_Integration(t *testing.T) {
 	})
 
 	t.Run("delete with condition", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		testUsers := []*TestUser{
@@ -551,7 +541,7 @@ func TestDelete_Integration(t *testing.T) {
 	})
 
 	t.Run("delete batch", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		batchInsert := []*TestUser{

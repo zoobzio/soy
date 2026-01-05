@@ -39,13 +39,13 @@ func (ub *Update[T]) Set(field, param string) *Update[T] {
 
 	f, err := ub.instance.TryF(field)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		ub.err = newFieldError(field, err)
 		return ub
 	}
 
 	p, err := ub.instance.TryP(param)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid param %q: %w", param, err)
+		ub.err = newParamError(param, err)
 		return ub
 	}
 
@@ -107,7 +107,7 @@ func (ub *Update[T]) WhereAnd(conditions ...Condition) *Update[T] {
 
 	andGroup, err := ub.instance.TryAnd(conditionItems...)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid AND condition: %w", err)
+		ub.err = newConditionError(err)
 		return ub
 	}
 
@@ -146,7 +146,7 @@ func (ub *Update[T]) WhereOr(conditions ...Condition) *Update[T] {
 
 	orGroup, err := ub.instance.TryOr(conditionItems...)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid OR condition: %w", err)
+		ub.err = newConditionError(err)
 		return ub
 	}
 
@@ -164,13 +164,13 @@ func (ub *Update[T]) WhereNull(field string) *Update[T] {
 
 	f, err := ub.instance.TryF(field)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		ub.err = newFieldError(field, err)
 		return ub
 	}
 
 	condition, err := ub.instance.TryNull(f)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid NULL condition: %w", err)
+		ub.err = newConditionError(err)
 		return ub
 	}
 
@@ -188,13 +188,13 @@ func (ub *Update[T]) WhereNotNull(field string) *Update[T] {
 
 	f, err := ub.instance.TryF(field)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		ub.err = newFieldError(field, err)
 		return ub
 	}
 
 	condition, err := ub.instance.TryNotNull(f)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid NOT NULL condition: %w", err)
+		ub.err = newConditionError(err)
 		return ub
 	}
 
@@ -218,7 +218,7 @@ func (ub *Update[T]) WhereBetween(field, lowParam, highParam string) *Update[T] 
 
 	f, err := ub.instance.TryF(field)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		ub.err = newFieldError(field, err)
 		return ub
 	}
 
@@ -255,7 +255,7 @@ func (ub *Update[T]) WhereNotBetween(field, lowParam, highParam string) *Update[
 
 	f, err := ub.instance.TryF(field)
 	if err != nil {
-		ub.err = fmt.Errorf("invalid field %q: %w", field, err)
+		ub.err = newFieldError(field, err)
 		return ub
 	}
 

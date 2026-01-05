@@ -10,11 +10,9 @@ import (
 )
 
 func TestNullHandling_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -22,7 +20,7 @@ func TestNullHandling_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("insert with explicit NULL", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert record with NULL age
 		record := &TestUser{
@@ -52,7 +50,7 @@ func TestNullHandling_Integration(t *testing.T) {
 	})
 
 	t.Run("update field to NULL", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert record with non-NULL age
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -82,7 +80,7 @@ func TestNullHandling_Integration(t *testing.T) {
 	})
 
 	t.Run("WHERE IS NULL", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert users with and without age
 		testUsers := []*TestUser{
@@ -111,7 +109,7 @@ func TestNullHandling_Integration(t *testing.T) {
 	})
 
 	t.Run("WHERE IS NOT NULL", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert users with and without age
 		testUsers := []*TestUser{
@@ -141,7 +139,7 @@ func TestNullHandling_Integration(t *testing.T) {
 	})
 
 	t.Run("delete WHERE IS NULL", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert users with and without age
 		testUsers := []*TestUser{
@@ -178,11 +176,9 @@ func TestNullHandling_Integration(t *testing.T) {
 }
 
 func TestComplexWhere_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -190,7 +186,7 @@ func TestComplexWhere_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert test data
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 	testUsers := []*TestUser{
 		{Email: "alice@example.com", Name: "Alice Smith", Age: intPtr(25)},
 		{Email: "bob@example.com", Name: "Bob Jones", Age: intPtr(30)},

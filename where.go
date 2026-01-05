@@ -1,8 +1,6 @@
 package soy
 
 import (
-	"fmt"
-
 	"github.com/zoobzio/astql"
 )
 
@@ -38,17 +36,17 @@ func (w *whereBuilder) addWhereWithCondition(field, operator, param string) (*as
 
 	f, err := w.instance.TryF(field)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return w.builder, nil, newFieldError(field, err)
 	}
 
 	p, err := w.instance.TryP(param)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid param %q: %w", param, err)
+		return w.builder, nil, newParamError(param, err)
 	}
 
 	condition, err := w.instance.TryC(f, astqlOp, p)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid condition: %w", err)
+		return w.builder, nil, newConditionError(err)
 	}
 
 	return w.builder.Where(condition), condition, nil
@@ -77,7 +75,7 @@ func (w *whereBuilder) addWhereAndWithCondition(conditions ...Condition) (*astql
 
 	andGroup, err := w.instance.TryAnd(conditionItems...)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid AND condition: %w", err)
+		return w.builder, nil, newConditionError(err)
 	}
 
 	return w.builder.Where(andGroup), andGroup, nil
@@ -106,7 +104,7 @@ func (w *whereBuilder) addWhereOrWithCondition(conditions ...Condition) (*astql.
 
 	orGroup, err := w.instance.TryOr(conditionItems...)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid OR condition: %w", err)
+		return w.builder, nil, newConditionError(err)
 	}
 
 	return w.builder.Where(orGroup), orGroup, nil
@@ -122,12 +120,12 @@ func (w *whereBuilder) addWhereNull(field string) (*astql.Builder, error) {
 func (w *whereBuilder) addWhereNullWithCondition(field string) (*astql.Builder, astql.ConditionItem, error) {
 	f, err := w.instance.TryF(field)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return w.builder, nil, newFieldError(field, err)
 	}
 
 	condition, err := w.instance.TryNull(f)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid NULL condition: %w", err)
+		return w.builder, nil, newConditionError(err)
 	}
 
 	return w.builder.Where(condition), condition, nil
@@ -143,12 +141,12 @@ func (w *whereBuilder) addWhereNotNull(field string) (*astql.Builder, error) {
 func (w *whereBuilder) addWhereNotNullWithCondition(field string) (*astql.Builder, astql.ConditionItem, error) {
 	f, err := w.instance.TryF(field)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return w.builder, nil, newFieldError(field, err)
 	}
 
 	condition, err := w.instance.TryNotNull(f)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid NOT NULL condition: %w", err)
+		return w.builder, nil, newConditionError(err)
 	}
 
 	return w.builder.Where(condition), condition, nil
@@ -164,17 +162,17 @@ func (w *whereBuilder) addWhereBetween(field, lowParam, highParam string) (*astq
 func (w *whereBuilder) addWhereBetweenWithCondition(field, lowParam, highParam string) (*astql.Builder, astql.ConditionItem, error) {
 	f, err := w.instance.TryF(field)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return w.builder, nil, newFieldError(field, err)
 	}
 
 	lowP, err := w.instance.TryP(lowParam)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return w.builder, nil, newParamError(lowParam, err)
 	}
 
 	highP, err := w.instance.TryP(highParam)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return w.builder, nil, newParamError(highParam, err)
 	}
 
 	condition := astql.Between(f, lowP, highP)
@@ -191,17 +189,17 @@ func (w *whereBuilder) addWhereNotBetween(field, lowParam, highParam string) (*a
 func (w *whereBuilder) addWhereNotBetweenWithCondition(field, lowParam, highParam string) (*astql.Builder, astql.ConditionItem, error) {
 	f, err := w.instance.TryF(field)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return w.builder, nil, newFieldError(field, err)
 	}
 
 	lowP, err := w.instance.TryP(lowParam)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return w.builder, nil, newParamError(lowParam, err)
 	}
 
 	highP, err := w.instance.TryP(highParam)
 	if err != nil {
-		return w.builder, nil, fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return w.builder, nil, newParamError(highParam, err)
 	}
 
 	condition := astql.NotBetween(f, lowP, highP)
@@ -218,7 +216,7 @@ func (w *whereBuilder) buildCondition(cond Condition) (astql.ConditionItem, erro
 func buildConditionWithInstance(instance *astql.ASTQL, cond Condition) (astql.ConditionItem, error) {
 	f, err := instance.TryF(cond.field)
 	if err != nil {
-		return nil, fmt.Errorf("invalid field %q: %w", cond.field, err)
+		return nil, newFieldError(cond.field, err)
 	}
 
 	if cond.isNull {
@@ -231,11 +229,11 @@ func buildConditionWithInstance(instance *astql.ASTQL, cond Condition) (astql.Co
 	if cond.isBetween {
 		lowP, err := instance.TryP(cond.lowParam)
 		if err != nil {
-			return nil, fmt.Errorf("invalid low param %q: %w", cond.lowParam, err)
+			return nil, newParamError(cond.lowParam, err)
 		}
 		highP, err := instance.TryP(cond.highParam)
 		if err != nil {
-			return nil, fmt.Errorf("invalid high param %q: %w", cond.highParam, err)
+			return nil, newParamError(cond.highParam, err)
 		}
 		if cond.operator == opBetween {
 			return astql.Between(f, lowP, highP), nil
@@ -250,7 +248,7 @@ func buildConditionWithInstance(instance *astql.ASTQL, cond Condition) (astql.Co
 
 	p, err := instance.TryP(cond.param)
 	if err != nil {
-		return nil, fmt.Errorf("invalid param %q: %w", cond.param, err)
+		return nil, newParamError(cond.param, err)
 	}
 
 	return instance.TryC(f, astqlOp, p)
@@ -267,17 +265,17 @@ func buildCaseWhenCondition(instance *astql.ASTQL, field, operator, param string
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return nil, newFieldError(field, err)
 	}
 
 	p, err := instance.TryP(param)
 	if err != nil {
-		return nil, fmt.Errorf("invalid param %q: %w", param, err)
+		return nil, newParamError(param, err)
 	}
 
 	condition, err := instance.TryC(f, astqlOp, p)
 	if err != nil {
-		return nil, fmt.Errorf("invalid condition: %w", err)
+		return nil, newConditionError(err)
 	}
 
 	return condition, nil

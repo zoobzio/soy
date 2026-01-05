@@ -11,11 +11,9 @@ import (
 )
 
 func TestTypeCoverage_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createExtendedTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUserExtended](tdb.db, "test_users_extended", postgres.New())
+	c, err := soy.New[TestUserExtended](db, "test_users_extended", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -23,7 +21,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("boolean type - true", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		record := &TestUserExtended{
 			Email:    "active@example.com",
@@ -52,7 +50,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("boolean type - false", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		record := &TestUserExtended{
 			Email:    "inactive@example.com",
@@ -70,7 +68,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("boolean type - NULL", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		record := &TestUserExtended{
 			Email:    "unknown@example.com",
@@ -88,7 +86,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("timestamp type - with value", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		now := time.Now().UTC().Truncate(time.Microsecond) // PostgreSQL has microsecond precision
 		record := &TestUserExtended{
@@ -113,7 +111,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("timestamp type - NULL", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		record := &TestUserExtended{
 			Email:     "notimestamp@example.com",
@@ -131,12 +129,12 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("timestamp default value (created_at)", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		beforeInsert := time.Now().UTC()
 
 		// Insert omitting created_at to let DB default apply
-		_, err := tdb.db.Exec(`INSERT INTO test_users_extended (email, name) VALUES ($1, $2)`,
+		_, err := db.Exec(`INSERT INTO test_users_extended (email, name) VALUES ($1, $2)`,
 			"defaulttime@example.com", "Default Time User")
 		if err != nil {
 			t.Fatalf("INSERT failed: %v", err)
@@ -146,7 +144,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 
 		// Verify the DB default was applied
 		var createdAt *time.Time
-		err = tdb.db.Get(&createdAt, `SELECT created_at FROM test_users_extended WHERE email = $1`, "defaulttime@example.com")
+		err = db.Get(&createdAt, `SELECT created_at FROM test_users_extended WHERE email = $1`, "defaulttime@example.com")
 		if err != nil {
 			t.Fatalf("query failed: %v", err)
 		}
@@ -159,7 +157,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("JSONB type - simple object", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		jsonData := `{"role": "admin", "permissions": ["read", "write"]}`
 		record := &TestUserExtended{
@@ -193,7 +191,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("JSONB type - NULL", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		record := &TestUserExtended{
 			Email:    "nojson@example.com",
@@ -211,7 +209,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("update timestamp", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		// Insert without updated_at
 		_, err := c.Insert().Exec(ctx, &TestUserExtended{
@@ -241,7 +239,7 @@ func TestTypeCoverage_Integration(t *testing.T) {
 	})
 
 	t.Run("query with boolean WHERE", func(t *testing.T) {
-		truncateExtendedTestTable(t, tdb.db)
+		truncateExtendedTestTable(t, db)
 
 		// Insert mix of active/inactive users
 		users := []*TestUserExtended{

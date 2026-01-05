@@ -2,7 +2,6 @@ package soy
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -988,12 +987,12 @@ func (sb *Select[T]) SelectMaxOver(field string) *SelectWindowBuilder[T] {
 func (sb *Select[T]) Render() (*astql.QueryResult, error) {
 	// Check for  errors first
 	if sb.err != nil {
-		return nil, fmt.Errorf("select  has errors: %w", sb.err)
+		return nil, newBuilderError("select", sb.err)
 	}
 
 	result, err := sb.builder.Render(sb.soy.renderer())
 	if err != nil {
-		return nil, fmt.Errorf("failed to render SELECT query: %w", err)
+		return nil, newRenderError("SELECT", err)
 	}
 	return result, nil
 }
@@ -1073,12 +1072,12 @@ func (sb *Select[T]) ExecTxAtom(ctx context.Context, tx *sqlx.Tx, params map[str
 // execAtom is the internal atom execution method used by both ExecAtom and ExecTxAtom.
 func (sb *Select[T]) execAtom(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*atom.Atom, error) {
 	if sb.err != nil {
-		return nil, fmt.Errorf("select builder has errors: %w", sb.err)
+		return nil, newBuilderError("select", sb.err)
 	}
 
 	result, err := sb.Render()
 	if err != nil {
-		return nil, fmt.Errorf("failed to render query: %w", err)
+		return nil, err // already wrapped by Render
 	}
 
 	return execAtomSingleRow(ctx, execer, sb.soy.atomScanner(), result.SQL, params, sb.soy.getTableName(), "SELECT")
@@ -1088,13 +1087,13 @@ func (sb *Select[T]) execAtom(ctx context.Context, execer sqlx.ExtContext, param
 func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params map[string]any) (*T, error) {
 	// Check for  errors first
 	if sb.err != nil {
-		return nil, fmt.Errorf("select  has errors: %w", sb.err)
+		return nil, newBuilderError("select", sb.err)
 	}
 
 	// Render the query
 	result, err := sb.Render()
 	if err != nil {
-		return nil, fmt.Errorf("failed to render query: %w", err)
+		return nil, err // already wrapped by Render
 	}
 
 	// Emit query started event
@@ -1117,7 +1116,7 @@ func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("query execution failed: %w", err)
+		return nil, newQueryError("SELECT", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -1130,7 +1129,7 @@ func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field("no rows found"),
 		)
-		return nil, fmt.Errorf("no rows found")
+		return nil, ErrNotFound
 	}
 
 	// Scan the single row
@@ -1143,7 +1142,7 @@ func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("failed to scan row: %w", err)
+		return nil, newScanError("SELECT", err)
 	}
 
 	// Ensure no additional rows
@@ -1155,7 +1154,7 @@ func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field("expected exactly one row, found multiple"),
 		)
-		return nil, fmt.Errorf("expected exactly one row, found multiple")
+		return nil, ErrMultipleRows
 	}
 
 	// Emit query completed event

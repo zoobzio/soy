@@ -61,7 +61,7 @@ var nullsMap = map[string]astql.NullsOrdering{
 func validateOperator(op string) (astql.Operator, error) {
 	astqlOp, ok := operatorMap[op]
 	if !ok {
-		return "", fmt.Errorf("invalid operator %q, supported: =, !=, >, >=, <, <=, LIKE, NOT LIKE, ILIKE, NOT ILIKE, IN, NOT IN, ~, ~*, !~, !~*, @>, <@, &&, <->, <#>, <=>, <+>", op)
+		return "", newOperatorError(op)
 	}
 	return astqlOp, nil
 }
@@ -71,7 +71,7 @@ func validateDirection(dir string) (astql.Direction, error) {
 	lower := strings.ToLower(dir)
 	astqlDir, ok := directionMap[lower]
 	if !ok {
-		return "", fmt.Errorf("invalid direction %q, must be 'asc' or 'desc'", dir)
+		return "", newDirectionError(dir)
 	}
 	return astqlDir, nil
 }
@@ -81,7 +81,7 @@ func validateNulls(nulls string) (astql.NullsOrdering, error) {
 	lower := strings.ToLower(nulls)
 	astqlNulls, ok := nullsMap[lower]
 	if !ok {
-		return "", fmt.Errorf("invalid nulls ordering %q, must be 'first' or 'last'", nulls)
+		return "", newNullsOrderingError(nulls)
 	}
 	return astqlNulls, nil
 }
@@ -104,12 +104,12 @@ func buildAggregateCondition(instance *astql.ASTQL, aggFunc, field, param string
 	case "max":
 		aggType = astql.AggMax
 	default:
-		return astql.AggregateCondition{}, fmt.Errorf("invalid aggregate function %q, must be one of: count, sum, avg, min, max, count_distinct", aggFunc)
+		return astql.AggregateCondition{}, newAggregateFuncError(aggFunc)
 	}
 
 	p, err := instance.TryP(param)
 	if err != nil {
-		return astql.AggregateCondition{}, fmt.Errorf("invalid param %q: %w", param, err)
+		return astql.AggregateCondition{}, newParamError(param, err)
 	}
 
 	if field == "" {
@@ -118,7 +118,7 @@ func buildAggregateCondition(instance *astql.ASTQL, aggFunc, field, param string
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return astql.AggregateCondition{}, fmt.Errorf("invalid field %q: %w", field, err)
+		return astql.AggregateCondition{}, newFieldError(field, err)
 	}
 
 	return instance.TryAggC(aggType, &f, op, p)
@@ -138,7 +138,7 @@ func fieldsImpl(instance *astql.ASTQL, builder *astql.Builder, fields ...string)
 	for _, fieldName := range fields {
 		f, err := instance.TryF(fieldName)
 		if err != nil {
-			return builder, fmt.Errorf("invalid field %q: %w", fieldName, err)
+			return builder, newFieldError(fieldName, err)
 		}
 		fieldSlice = append(fieldSlice, f)
 	}
@@ -155,17 +155,17 @@ func whereImpl(instance *astql.ASTQL, builder *astql.Builder, field, operator, p
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	p, err := instance.TryP(param)
 	if err != nil {
-		return builder, fmt.Errorf("invalid param %q: %w", param, err)
+		return builder, newParamError(param, err)
 	}
 
 	condition, err := instance.TryC(f, astqlOp, p)
 	if err != nil {
-		return builder, fmt.Errorf("invalid condition: %w", err)
+		return builder, newConditionError(err)
 	}
 
 	return builder.Where(condition), nil
@@ -188,7 +188,7 @@ func whereAndImpl(instance *astql.ASTQL, builder *astql.Builder, conditions ...C
 
 	andGroup, err := instance.TryAnd(conditionItems...)
 	if err != nil {
-		return builder, fmt.Errorf("invalid AND condition: %w", err)
+		return builder, newConditionError(err)
 	}
 
 	return builder.Where(andGroup), nil
@@ -211,7 +211,7 @@ func whereOrImpl(instance *astql.ASTQL, builder *astql.Builder, conditions ...Co
 
 	orGroup, err := instance.TryOr(conditionItems...)
 	if err != nil {
-		return builder, fmt.Errorf("invalid OR condition: %w", err)
+		return builder, newConditionError(err)
 	}
 
 	return builder.Where(orGroup), nil
@@ -221,12 +221,12 @@ func whereOrImpl(instance *astql.ASTQL, builder *astql.Builder, conditions ...Co
 func whereNullImpl(instance *astql.ASTQL, builder *astql.Builder, field string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	condition, err := instance.TryNull(f)
 	if err != nil {
-		return builder, fmt.Errorf("invalid NULL condition: %w", err)
+		return builder, newConditionError(err)
 	}
 
 	return builder.Where(condition), nil
@@ -236,12 +236,12 @@ func whereNullImpl(instance *astql.ASTQL, builder *astql.Builder, field string) 
 func whereNotNullImpl(instance *astql.ASTQL, builder *astql.Builder, field string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	condition, err := instance.TryNotNull(f)
 	if err != nil {
-		return builder, fmt.Errorf("invalid NOT NULL condition: %w", err)
+		return builder, newConditionError(err)
 	}
 
 	return builder.Where(condition), nil
@@ -251,17 +251,17 @@ func whereNotNullImpl(instance *astql.ASTQL, builder *astql.Builder, field strin
 func whereBetweenImpl(instance *astql.ASTQL, builder *astql.Builder, field, lowParam, highParam string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	lowP, err := instance.TryP(lowParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return builder, newParamError(lowParam, err)
 	}
 
 	highP, err := instance.TryP(highParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return builder, newParamError(highParam, err)
 	}
 
 	return builder.Where(astql.Between(f, lowP, highP)), nil
@@ -271,17 +271,17 @@ func whereBetweenImpl(instance *astql.ASTQL, builder *astql.Builder, field, lowP
 func whereNotBetweenImpl(instance *astql.ASTQL, builder *astql.Builder, field, lowParam, highParam string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	lowP, err := instance.TryP(lowParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid low param %q: %w", lowParam, err)
+		return builder, newParamError(lowParam, err)
 	}
 
 	highP, err := instance.TryP(highParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid high param %q: %w", highParam, err)
+		return builder, newParamError(highParam, err)
 	}
 
 	return builder.Where(astql.NotBetween(f, lowP, highP)), nil
@@ -296,12 +296,12 @@ func whereFieldsImpl(instance *astql.ASTQL, builder *astql.Builder, leftField, o
 
 	left, err := instance.TryF(leftField)
 	if err != nil {
-		return builder, fmt.Errorf("invalid left field %q: %w", leftField, err)
+		return builder, newFieldError(leftField, err)
 	}
 
 	right, err := instance.TryF(rightField)
 	if err != nil {
-		return builder, fmt.Errorf("invalid right field %q: %w", rightField, err)
+		return builder, newFieldError(rightField, err)
 	}
 
 	return builder.Where(astql.CF(left, astqlOp, right)), nil
@@ -316,7 +316,7 @@ func orderByImpl(instance *astql.ASTQL, builder *astql.Builder, field, direction
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	return builder.OrderBy(f, astqlDir), nil
@@ -336,7 +336,7 @@ func orderByNullsImpl(instance *astql.ASTQL, builder *astql.Builder, field, dire
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	return builder.OrderByNulls(f, astqlDir, astqlNulls), nil
@@ -356,12 +356,12 @@ func orderByExprImpl(instance *astql.ASTQL, builder *astql.Builder, field, opera
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	p, err := instance.TryP(param)
 	if err != nil {
-		return builder, fmt.Errorf("invalid param %q: %w", param, err)
+		return builder, newParamError(param, err)
 	}
 
 	return builder.OrderByExpr(f, astqlOp, p, astqlDir), nil
@@ -371,7 +371,7 @@ func orderByExprImpl(instance *astql.ASTQL, builder *astql.Builder, field, opera
 func limitParamImpl(instance *astql.ASTQL, builder *astql.Builder, param string) (*astql.Builder, error) {
 	p, err := instance.TryP(param)
 	if err != nil {
-		return builder, fmt.Errorf("invalid limit param %q: %w", param, err)
+		return builder, newParamError(param, err)
 	}
 
 	return builder.LimitParam(p), nil
@@ -381,7 +381,7 @@ func limitParamImpl(instance *astql.ASTQL, builder *astql.Builder, param string)
 func offsetParamImpl(instance *astql.ASTQL, builder *astql.Builder, param string) (*astql.Builder, error) {
 	p, err := instance.TryP(param)
 	if err != nil {
-		return builder, fmt.Errorf("invalid offset param %q: %w", param, err)
+		return builder, newParamError(param, err)
 	}
 
 	return builder.OffsetParam(p), nil
@@ -397,7 +397,7 @@ func distinctOnImpl(instance *astql.ASTQL, builder *astql.Builder, fields ...str
 	for _, field := range fields {
 		f, err := instance.TryF(field)
 		if err != nil {
-			return builder, fmt.Errorf("invalid field %q: %w", field, err)
+			return builder, newFieldError(field, err)
 		}
 		astqlFields = append(astqlFields, f)
 	}
@@ -411,7 +411,7 @@ func groupByImpl(instance *astql.ASTQL, builder *astql.Builder, fields ...string
 	for _, field := range fields {
 		f, err := instance.TryF(field)
 		if err != nil {
-			return builder, fmt.Errorf("invalid field %q: %w", field, err)
+			return builder, newFieldError(field, err)
 		}
 		astqlFields = append(astqlFields, f)
 	}
@@ -427,17 +427,17 @@ func havingImpl(instance *astql.ASTQL, builder *astql.Builder, field, operator, 
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	p, err := instance.TryP(param)
 	if err != nil {
-		return builder, fmt.Errorf("invalid param %q: %w", param, err)
+		return builder, newParamError(param, err)
 	}
 
 	condition, err := instance.TryC(f, astqlOp, p)
 	if err != nil {
-		return builder, fmt.Errorf("invalid condition: %w", err)
+		return builder, newConditionError(err)
 	}
 
 	return builder.Having(condition), nil
@@ -464,7 +464,7 @@ func havingAggImpl(instance *astql.ASTQL, builder *astql.Builder, aggFunc, field
 func selectUpperImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Upper(f), alias)), nil
 }
@@ -473,7 +473,7 @@ func selectUpperImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectLowerImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Lower(f), alias)), nil
 }
@@ -482,7 +482,7 @@ func selectLowerImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectLengthImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Length(f), alias)), nil
 }
@@ -491,7 +491,7 @@ func selectLengthImpl(instance *astql.ASTQL, builder *astql.Builder, field, alia
 func selectTrimImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Trim(f), alias)), nil
 }
@@ -500,7 +500,7 @@ func selectTrimImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias 
 func selectLTrimImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.LTrim(f), alias)), nil
 }
@@ -509,7 +509,7 @@ func selectLTrimImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectRTrimImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.RTrim(f), alias)), nil
 }
@@ -520,7 +520,7 @@ func selectRTrimImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectAbsImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Abs(f), alias)), nil
 }
@@ -529,7 +529,7 @@ func selectAbsImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias s
 func selectCeilImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Ceil(f), alias)), nil
 }
@@ -538,7 +538,7 @@ func selectCeilImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias 
 func selectFloorImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Floor(f), alias)), nil
 }
@@ -547,7 +547,7 @@ func selectFloorImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectRoundImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Round(f), alias)), nil
 }
@@ -556,7 +556,7 @@ func selectRoundImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectSqrtImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Sqrt(f), alias)), nil
 }
@@ -567,7 +567,7 @@ func selectSqrtImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias 
 func selectCastImpl(instance *astql.ASTQL, builder *astql.Builder, field string, castType CastType, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Cast(f, castType), alias)), nil
 }
@@ -578,7 +578,7 @@ func selectCastImpl(instance *astql.ASTQL, builder *astql.Builder, field string,
 func selectCountImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.CountField(f), alias)), nil
 }
@@ -587,7 +587,7 @@ func selectCountImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias
 func selectCountDistinctImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.CountDistinct(f), alias)), nil
 }
@@ -596,7 +596,7 @@ func selectCountDistinctImpl(instance *astql.ASTQL, builder *astql.Builder, fiel
 func selectSumImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Sum(f), alias)), nil
 }
@@ -605,7 +605,7 @@ func selectSumImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias s
 func selectAvgImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Avg(f), alias)), nil
 }
@@ -614,7 +614,7 @@ func selectAvgImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias s
 func selectMinImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Min(f), alias)), nil
 }
@@ -623,7 +623,7 @@ func selectMinImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias s
 func selectMaxImpl(instance *astql.ASTQL, builder *astql.Builder, field, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 	return builder.SelectExpr(astql.As(astql.Max(f), alias)), nil
 }
@@ -640,7 +640,7 @@ func selectConcatImpl(instance *astql.ASTQL, builder *astql.Builder, alias strin
 	for _, field := range fields {
 		f, err := instance.TryF(field)
 		if err != nil {
-			return builder, fmt.Errorf("invalid field %q: %w", field, err)
+			return builder, newFieldError(field, err)
 		}
 		astqlFields = append(astqlFields, f)
 	}
@@ -658,7 +658,7 @@ func selectCoalesceImpl(instance *astql.ASTQL, builder *astql.Builder, alias str
 	for _, param := range params {
 		p, err := instance.TryP(param)
 		if err != nil {
-			return builder, fmt.Errorf("invalid param %q: %w", param, err)
+			return builder, newParamError(param, err)
 		}
 		astqlParams = append(astqlParams, p)
 	}
@@ -670,17 +670,17 @@ func selectCoalesceImpl(instance *astql.ASTQL, builder *astql.Builder, alias str
 func selectSubstringImpl(instance *astql.ASTQL, builder *astql.Builder, field, startParam, lengthParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	start, err := instance.TryP(startParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid start param %q: %w", startParam, err)
+		return builder, newParamError(startParam, err)
 	}
 
 	length, err := instance.TryP(lengthParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid length param %q: %w", lengthParam, err)
+		return builder, newParamError(lengthParam, err)
 	}
 
 	return builder.SelectExpr(astql.As(astql.Substring(f, start, length), alias)), nil
@@ -690,17 +690,17 @@ func selectSubstringImpl(instance *astql.ASTQL, builder *astql.Builder, field, s
 func selectReplaceImpl(instance *astql.ASTQL, builder *astql.Builder, field, searchParam, replacementParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	search, err := instance.TryP(searchParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid search param %q: %w", searchParam, err)
+		return builder, newParamError(searchParam, err)
 	}
 
 	replacement, err := instance.TryP(replacementParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid replacement param %q: %w", replacementParam, err)
+		return builder, newParamError(replacementParam, err)
 	}
 
 	return builder.SelectExpr(astql.As(astql.Replace(f, search, replacement), alias)), nil
@@ -710,12 +710,12 @@ func selectReplaceImpl(instance *astql.ASTQL, builder *astql.Builder, field, sea
 func selectPowerImpl(instance *astql.ASTQL, builder *astql.Builder, field, exponentParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	exp, err := instance.TryP(exponentParam)
 	if err != nil {
-		return builder, fmt.Errorf("invalid exponent param %q: %w", exponentParam, err)
+		return builder, newParamError(exponentParam, err)
 	}
 
 	return builder.SelectExpr(astql.As(astql.Power(f, exp), alias)), nil
@@ -725,12 +725,12 @@ func selectPowerImpl(instance *astql.ASTQL, builder *astql.Builder, field, expon
 func selectNullIfImpl(instance *astql.ASTQL, builder *astql.Builder, param1, param2, alias string) (*astql.Builder, error) {
 	p1, err := instance.TryP(param1)
 	if err != nil {
-		return builder, fmt.Errorf("invalid param1 %q: %w", param1, err)
+		return builder, newParamError(param1, err)
 	}
 
 	p2, err := instance.TryP(param2)
 	if err != nil {
-		return builder, fmt.Errorf("invalid param2 %q: %w", param2, err)
+		return builder, newParamError(param2, err)
 	}
 
 	return builder.SelectExpr(astql.As(astql.NullIf(p1, p2), alias)), nil
@@ -747,12 +747,12 @@ func buildSimpleConditionImpl(instance *astql.ASTQL, field, operator, param stri
 
 	f, err := instance.TryF(field)
 	if err != nil {
-		return nil, fmt.Errorf("invalid field %q: %w", field, err)
+		return nil, newFieldError(field, err)
 	}
 
 	p, err := instance.TryP(param)
 	if err != nil {
-		return nil, fmt.Errorf("invalid param %q: %w", param, err)
+		return nil, newParamError(param, err)
 	}
 
 	return instance.TryC(f, astqlOp, p)
@@ -762,7 +762,7 @@ func buildSimpleConditionImpl(instance *astql.ASTQL, field, operator, param stri
 func selectSumFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, condField, condOp, condParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	filter, err := buildSimpleConditionImpl(instance, condField, condOp, condParam)
@@ -777,7 +777,7 @@ func selectSumFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, c
 func selectAvgFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, condField, condOp, condParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	filter, err := buildSimpleConditionImpl(instance, condField, condOp, condParam)
@@ -792,7 +792,7 @@ func selectAvgFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, c
 func selectMinFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, condField, condOp, condParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	filter, err := buildSimpleConditionImpl(instance, condField, condOp, condParam)
@@ -807,7 +807,7 @@ func selectMinFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, c
 func selectMaxFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, condField, condOp, condParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	filter, err := buildSimpleConditionImpl(instance, condField, condOp, condParam)
@@ -822,7 +822,7 @@ func selectMaxFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, c
 func selectCountFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, condField, condOp, condParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	filter, err := buildSimpleConditionImpl(instance, condField, condOp, condParam)
@@ -837,7 +837,7 @@ func selectCountFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field,
 func selectCountDistinctFilterImpl(instance *astql.ASTQL, builder *astql.Builder, field, condField, condOp, condParam, alias string) (*astql.Builder, error) {
 	f, err := instance.TryF(field)
 	if err != nil {
-		return builder, fmt.Errorf("invalid field %q: %w", field, err)
+		return builder, newFieldError(field, err)
 	}
 
 	filter, err := buildSimpleConditionImpl(instance, condField, condOp, condParam)

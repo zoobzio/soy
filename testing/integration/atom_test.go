@@ -9,11 +9,9 @@ import (
 )
 
 func TestAtomScanning_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -21,7 +19,7 @@ func TestAtomScanning_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert test data
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 	_, err = c.Insert().Exec(ctx, &TestUser{
 		Email: "atom1@example.com",
 		Name:  "Atom User 1",
@@ -163,20 +161,18 @@ func TestAtomScanning_Integration(t *testing.T) {
 }
 
 func TestAtomScanning_Transaction(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	ctx := context.Background()
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 
 	t.Run("ExecTxAtom works within transaction", func(t *testing.T) {
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx failed: %v", err)
 		}
@@ -219,7 +215,7 @@ func TestAtomScanning_Transaction(t *testing.T) {
 	})
 
 	t.Run("Select.ExecTxAtom works within transaction", func(t *testing.T) {
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx failed: %v", err)
 		}
@@ -254,17 +250,15 @@ func TestAtomScanning_Transaction(t *testing.T) {
 
 // TestAtomScanning_FieldTypes verifies all field types scan correctly to their atom tables.
 func TestAtomScanning_FieldTypes(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	ctx := context.Background()
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 
 	// Insert with known values
 	testAge := 42
@@ -377,17 +371,15 @@ func TestAtomScanning_FieldTypes(t *testing.T) {
 
 // TestAtomScanning_QueryParity verifies Query.ExecAtom returns equivalent data to Query.Exec.
 func TestAtomScanning_QueryParity(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	ctx := context.Background()
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 
 	// Insert multiple users
 	ages := []int{25, 30, 35}

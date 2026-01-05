@@ -9,11 +9,9 @@ import (
 )
 
 func TestEdgeCases_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -21,7 +19,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("query empty table", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		users, err := c.Query().Exec(ctx, nil)
 		if err != nil {
@@ -33,7 +31,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("count empty table", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		count, err := c.Count().Exec(ctx, nil)
 		if err != nil {
@@ -45,7 +43,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("select no rows returns error", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		_, err := c.Select().
 			Where("email", "=", "user_email").
@@ -56,7 +54,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("LIMIT 0 returns empty slice", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert some data
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -78,7 +76,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("large OFFSET returns empty slice", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert one record
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -100,7 +98,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("delete no matching rows returns 0", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		affected, err := c.Remove().
 			Where("email", "=", "user_email").
@@ -114,7 +112,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("empty batch insert returns 0", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		records := []*TestUser{}
 		count, err := c.Insert().ExecBatch(ctx, records)
@@ -127,7 +125,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("empty batch update returns 0", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		batchParams := []map[string]any{}
 		affected, err := c.Modify().
@@ -143,7 +141,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("empty batch delete returns 0", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		batchParams := []map[string]any{}
 		affected, err := c.Remove().
@@ -158,7 +156,7 @@ func TestEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("DISTINCT removes duplicates", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert users with same names but different emails
 		testUsers := []*TestUser{
@@ -185,11 +183,9 @@ func TestEdgeCases_Integration(t *testing.T) {
 }
 
 func TestConstraintViolations_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -197,33 +193,33 @@ func TestConstraintViolations_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("duplicate primary key", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert first record
-		_, err := tdb.db.ExecContext(ctx, `INSERT INTO test_users (id, email, name) VALUES (1, 'first@example.com', 'First User')`)
+		_, err := db.ExecContext(ctx, `INSERT INTO test_users (id, email, name) VALUES (1, 'first@example.com', 'First User')`)
 		if err != nil {
 			t.Fatalf("failed to insert first record: %v", err)
 		}
 
 		// Attempt to insert duplicate PK
-		_, err = tdb.db.ExecContext(ctx, `INSERT INTO test_users (id, email, name) VALUES (1, 'second@example.com', 'Second User')`)
+		_, err = db.ExecContext(ctx, `INSERT INTO test_users (id, email, name) VALUES (1, 'second@example.com', 'Second User')`)
 		if err == nil {
 			t.Error("expected error for duplicate primary key")
 		}
 	})
 
 	t.Run("NOT NULL constraint violation", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Try to insert with NULL name (NOT NULL constraint)
-		_, err := tdb.db.ExecContext(ctx, `INSERT INTO test_users (email, name) VALUES ('test@example.com', NULL)`)
+		_, err := db.ExecContext(ctx, `INSERT INTO test_users (email, name) VALUES ('test@example.com', NULL)`)
 		if err == nil {
 			t.Error("expected error for NOT NULL violation")
 		}
 	})
 
 	t.Run("UNIQUE constraint violation", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert first record
 		_, err := c.Insert().Exec(ctx, &TestUser{
@@ -245,7 +241,7 @@ func TestConstraintViolations_Integration(t *testing.T) {
 	})
 
 	t.Run("UNIQUE constraint with ON CONFLICT DO NOTHING", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert first record
 		_, err := c.Insert().Exec(ctx, &TestUser{

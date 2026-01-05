@@ -4,6 +4,9 @@ package integration
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -35,6 +38,13 @@ type TestUserExtended struct {
 	Metadata  *string    `db:"metadata" type:"jsonb"`
 }
 
+// TestVectorWithPgvector is a model for pgvector tests.
+type TestVectorWithPgvector struct {
+	ID        int    `db:"id" type:"serial" constraints:"primarykey"`
+	Name      string `db:"name" type:"text" constraints:"notnull"`
+	Embedding string `db:"embedding" type:"vector(3)"` // 3-dimensional vector
+}
+
 func init() {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
@@ -52,19 +62,17 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-// testDB holds a database connection for tests.
-type testDB struct {
-	db        *sqlx.DB
-	container *postgres.PostgresContainer
-}
+// Shared test database - initialized once in TestMain.
+var sharedDB *sqlx.DB
+var sharedContainer *postgres.PostgresContainer
 
-// setupTestDB creates a PostgreSQL container and returns a database connection.
-func setupTestDB(t *testing.T) *testDB {
-	t.Helper()
+// TestMain sets up a shared PostgreSQL container for all integration tests.
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
+	// Start pgvector container (superset of standard postgres)
 	pgContainer, err := postgres.Run(ctx,
-		"postgres:16-alpine",
+		"pgvector/pgvector:pg16",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
@@ -75,53 +83,89 @@ func setupTestDB(t *testing.T) *testDB {
 		),
 	)
 	if err != nil {
-		t.Fatalf("failed to start postgres container: %v", err)
+		log.Fatalf("failed to start postgres container: %v", err)
 	}
+	sharedContainer = pgContainer
 
 	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		t.Fatalf("failed to get connection string: %v", err)
+		log.Fatalf("failed to get connection string: %v", err)
 	}
 
 	db, err := sqlx.Connect("postgres", connStr)
 	if err != nil {
-		t.Fatalf("failed to connect to database: %v", err)
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	sharedDB = db
+
+	// Enable pgvector extension
+	if _, err := db.Exec(`CREATE EXTENSION IF NOT EXISTS vector`); err != nil {
+		log.Fatalf("failed to create vector extension: %v", err)
 	}
 
-	return &testDB{
-		db:        db,
-		container: pgContainer,
+	// Create all tables upfront
+	if err := createAllTables(db); err != nil {
+		log.Fatalf("failed to create tables: %v", err)
 	}
-}
 
-// cleanup closes the database and terminates the container.
-func (tdb *testDB) cleanup(t *testing.T) {
-	t.Helper()
-	if tdb.db != nil {
-		tdb.db.Close()
+	// Run tests
+	code := m.Run()
+
+	// Cleanup
+	if sharedDB != nil {
+		sharedDB.Close()
 	}
-	if tdb.container != nil {
-		if err := tdb.container.Terminate(context.Background()); err != nil {
-			t.Logf("failed to terminate container: %v", err)
+	if sharedContainer != nil {
+		if err := sharedContainer.Terminate(context.Background()); err != nil {
+			log.Printf("failed to terminate container: %v", err)
 		}
 	}
+
+	os.Exit(code)
 }
 
-// createTestTable creates the test_users table.
-func createTestTable(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS test_users (
+// createAllTables creates all tables needed for integration tests.
+func createAllTables(db *sqlx.DB) error {
+	tables := []string{
+		`CREATE TABLE IF NOT EXISTS test_users (
 			id SERIAL PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
 			name TEXT NOT NULL,
 			age INTEGER,
 			created_at TIMESTAMPTZ DEFAULT NOW()
-		)
-	`)
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
+		)`,
+		`CREATE TABLE IF NOT EXISTS test_users_extended (
+			id SERIAL PRIMARY KEY,
+			email TEXT NOT NULL UNIQUE,
+			name TEXT NOT NULL,
+			age INTEGER,
+			is_active BOOLEAN,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ,
+			metadata JSONB
+		)`,
+		`CREATE TABLE IF NOT EXISTS test_vectors (
+			id SERIAL PRIMARY KEY,
+			name TEXT NOT NULL,
+			embedding vector(3)
+		)`,
 	}
+
+	for _, ddl := range tables {
+		if _, err := db.Exec(ddl); err != nil {
+			return fmt.Errorf("failed to execute DDL: %w", err)
+		}
+	}
+	return nil
+}
+
+// getTestDB returns the shared database connection.
+func getTestDB(t *testing.T) *sqlx.DB {
+	t.Helper()
+	if sharedDB == nil {
+		t.Fatal("shared database not initialized - TestMain may not have run")
+	}
+	return sharedDB
 }
 
 // truncateTestTable clears the test_users table.
@@ -133,31 +177,20 @@ func truncateTestTable(t *testing.T, db *sqlx.DB) {
 	}
 }
 
-// createExtendedTestTable creates the test_users_extended table.
-func createExtendedTestTable(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS test_users_extended (
-			id SERIAL PRIMARY KEY,
-			email TEXT NOT NULL UNIQUE,
-			name TEXT NOT NULL,
-			age INTEGER,
-			is_active BOOLEAN,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ,
-			metadata JSONB
-		)
-	`)
-	if err != nil {
-		t.Fatalf("failed to create extended table: %v", err)
-	}
-}
-
 // truncateExtendedTestTable clears the test_users_extended table.
 func truncateExtendedTestTable(t *testing.T, db *sqlx.DB) {
 	t.Helper()
 	_, err := db.Exec(`TRUNCATE TABLE test_users_extended RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("failed to truncate extended table: %v", err)
+	}
+}
+
+// truncateVectorTestTable clears the vector test table.
+func truncateVectorTestTable(t *testing.T, db *sqlx.DB) {
+	t.Helper()
+	_, err := db.Exec(`TRUNCATE TABLE test_vectors RESTART IDENTITY`)
+	if err != nil {
+		t.Fatalf("failed to truncate vector table: %v", err)
 	}
 }

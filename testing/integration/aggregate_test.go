@@ -9,11 +9,9 @@ import (
 )
 
 func TestAggregates_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -21,7 +19,7 @@ func TestAggregates_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert test data
-	truncateTestTable(t, tdb.db)
+	truncateTestTable(t, db)
 	testUsers := []*TestUser{
 		{Email: "agg1@example.com", Name: "User 1", Age: intPtr(20)},
 		{Email: "agg2@example.com", Name: "User 2", Age: intPtr(30)},
@@ -115,11 +113,9 @@ func TestAggregates_Integration(t *testing.T) {
 }
 
 func TestAggregateEdgeCases_Integration(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.cleanup(t)
-	createTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := soy.New[TestUser](tdb.db, "test_users", postgres.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -127,7 +123,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("count on empty table", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		count, err := c.Count().Exec(ctx, nil)
 		if err != nil {
@@ -139,7 +135,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("sum on empty table", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		sum, err := c.Sum("age").Exec(ctx, nil)
 		if err != nil {
@@ -152,7 +148,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("avg on empty table", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		avg, err := c.Avg("age").Exec(ctx, nil)
 		if err != nil {
@@ -165,7 +161,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("min/max on empty table", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		minVal, err := c.Min("age").Exec(ctx, nil)
 		if err != nil {
@@ -185,7 +181,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("aggregates with all NULL values", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert records with all NULL ages
 		testUsers := []*TestUser{
@@ -229,7 +225,7 @@ func TestAggregateEdgeCases_Integration(t *testing.T) {
 	})
 
 	t.Run("aggregates with mixed NULL and values", func(t *testing.T) {
-		truncateTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert records with mix of NULL and non-NULL ages
 		testUsers := []*TestUser{

@@ -2,7 +2,6 @@ package soy
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -37,7 +36,7 @@ func execMultipleRows[T any](
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("%s query failed: %w", operation, err)
+		return nil, newQueryError(operation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -52,7 +51,7 @@ func execMultipleRows[T any](
 				DurationMsKey.Field(durationMs),
 				ErrorKey.Field(err.Error()),
 			)
-			return nil, fmt.Errorf("failed to scan row: %w", err)
+			return nil, newScanError(operation, err)
 		}
 		records = append(records, &record)
 	}
@@ -65,7 +64,7 @@ func execMultipleRows[T any](
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, newIterationError(err)
 	}
 
 	durationMs := time.Since(startTime).Milliseconds()
@@ -107,7 +106,7 @@ func execAtomSingleRow(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("%s query failed: %w", operation, err)
+		return nil, newQueryError(operation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -120,7 +119,7 @@ func execAtomSingleRow(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field("no rows found"),
 		)
-		return nil, fmt.Errorf("no rows found")
+		return nil, ErrNotFound
 	}
 
 	// Scan directly into atom
@@ -133,7 +132,7 @@ func execAtomSingleRow(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("failed to scan row to atom: %w", err)
+		return nil, newScanError(operation, err)
 	}
 
 	// Ensure no additional rows
@@ -145,7 +144,7 @@ func execAtomSingleRow(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field("expected exactly one row, found multiple"),
 		)
-		return nil, fmt.Errorf("expected exactly one row, found multiple")
+		return nil, ErrMultipleRows
 	}
 
 	durationMs := time.Since(startTime).Milliseconds()
@@ -186,7 +185,7 @@ func execAtomMultipleRows(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("%s query failed: %w", operation, err)
+		return nil, newQueryError(operation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -200,7 +199,7 @@ func execAtomMultipleRows(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("failed to scan rows to atoms: %w", err)
+		return nil, newScanError(operation, err)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -211,7 +210,7 @@ func execAtomMultipleRows(
 			DurationMsKey.Field(durationMs),
 			ErrorKey.Field(err.Error()),
 		)
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+		return nil, newIterationError(err)
 	}
 
 	durationMs := time.Since(startTime).Milliseconds()
