@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	astqlpg "github.com/zoobzio/astql/pkg/postgres"
+	astqlpg "github.com/zoobzio/astql/postgres"
 	"github.com/zoobzio/soy"
 )
 

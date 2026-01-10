@@ -2,6 +2,7 @@ version: "2"
 
 run:
   timeout: 5m
+  tests: true
 
 linters:
   default: none
@@ -21,9 +22,12 @@ linters:
 
     # Error handling
     - errcheck
+    - errchkjson
+    - wastedassign
 
     # Best practices
     - gocritic
+    - revive
     - unconvert
     - dupl
     - goconst
@@ -39,10 +43,12 @@ linters:
         - G104  # We'll use errcheck instead
 
     govet:
+      enable-all: true
       disable:
         - fieldalignment  # Performance optimization, not critical for correctness
 
     errcheck:
+      check-type-assertions: true
       exclude-functions:
         - (io.Closer).Close
         - (*database/sql.Rows).Close
@@ -63,7 +69,7 @@ linters:
         - weakCond
 
     dupl:
-      threshold: 300
+      threshold: 150
 
     goconst:
       min-len: 3

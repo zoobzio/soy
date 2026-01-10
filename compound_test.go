@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/zoobzio/astql/pkg/postgres"
+	"github.com/zoobzio/astql/postgres"
 	"github.com/zoobzio/sentinel"
 )
 
@@ -21,17 +20,7 @@ func TestCompoundUnion(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -83,17 +72,7 @@ func TestCompoundIntersect(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -132,17 +111,7 @@ func TestCompoundExcept(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -181,17 +150,7 @@ func TestCompoundModifiers(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -269,17 +228,7 @@ func TestCompoundChaining(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -335,17 +284,7 @@ func TestCompoundErrors(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -370,17 +309,7 @@ func TestCompoundParams(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -432,17 +361,7 @@ func TestCompoundChainingAllOperations(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {
@@ -538,17 +457,7 @@ func TestCompoundErrorPropagation(t *testing.T) {
 	sentinel.Tag("type")
 	sentinel.Tag("constraints")
 
-	db := sqlx.MustConnect("sqlite3", ":memory:")
-	defer db.Close()
-
-	db.MustExec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY,
-			email TEXT NOT NULL,
-			name TEXT,
-			age INTEGER
-		)
-	`)
+	db := &sqlx.DB{}
 
 	soy, err := New[compoundTestUser](db, "users", postgres.New())
 	if err != nil {

@@ -316,28 +316,28 @@ func (cb *Create[T]) execUpdateThenInsert(ctx context.Context, execer sqlx.ExtCo
 	// Build UPDATE query with SET and WHERE clauses
 	updateBuilder := astql.Update(t)
 	for field, param := range cb.updateFields {
-		f, err := instance.TryF(field)
-		if err != nil {
-			return nil, fmt.Errorf("invalid field %q: %w", field, err)
+		f, fErr := instance.TryF(field)
+		if fErr != nil {
+			return nil, fmt.Errorf("invalid field %q: %w", field, fErr)
 		}
-		p, err := instance.TryP(param)
-		if err != nil {
-			return nil, fmt.Errorf("invalid param %q: %w", param, err)
+		p, pErr := instance.TryP(param)
+		if pErr != nil {
+			return nil, fmt.Errorf("invalid param %q: %w", param, pErr)
 		}
 		updateBuilder = updateBuilder.Set(f, p)
 	}
 	for _, col := range cb.conflictColumns {
-		f, err := instance.TryF(col)
-		if err != nil {
-			return nil, fmt.Errorf("invalid conflict column %q: %w", col, err)
+		f, fErr := instance.TryF(col)
+		if fErr != nil {
+			return nil, fmt.Errorf("invalid conflict column %q: %w", col, fErr)
 		}
-		p, err := instance.TryP(col)
-		if err != nil {
-			return nil, fmt.Errorf("invalid conflict param %q: %w", col, err)
+		p, pErr := instance.TryP(col)
+		if pErr != nil {
+			return nil, fmt.Errorf("invalid conflict param %q: %w", col, pErr)
 		}
-		cond, err := instance.TryC(f, astql.EQ, p)
-		if err != nil {
-			return nil, fmt.Errorf("invalid condition: %w", err)
+		cond, cErr := instance.TryC(f, astql.EQ, p)
+		if cErr != nil {
+			return nil, fmt.Errorf("invalid condition: %w", cErr)
 		}
 		updateBuilder = updateBuilder.Where(cond)
 	}
@@ -393,13 +393,13 @@ func (cb *Create[T]) execUpdateThenInsert(ctx context.Context, execer sqlx.ExtCo
 		if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
 			continue
 		}
-		f, err := instance.TryF(dbCol)
-		if err != nil {
-			return nil, fmt.Errorf("invalid field %q: %w", dbCol, err)
+		f, fErr := instance.TryF(dbCol)
+		if fErr != nil {
+			return nil, fmt.Errorf("invalid field %q: %w", dbCol, fErr)
 		}
-		p, err := instance.TryP(dbCol)
-		if err != nil {
-			return nil, fmt.Errorf("invalid param %q: %w", dbCol, err)
+		p, pErr := instance.TryP(dbCol)
+		if pErr != nil {
+			return nil, fmt.Errorf("invalid param %q: %w", dbCol, pErr)
 		}
 		values[f] = p
 	}
@@ -411,9 +411,9 @@ func (cb *Create[T]) execUpdateThenInsert(ctx context.Context, execer sqlx.ExtCo
 		if dbCol == "" || dbCol == "-" {
 			continue
 		}
-		f, err := instance.TryF(dbCol)
-		if err != nil {
-			return nil, fmt.Errorf("invalid field %q: %w", dbCol, err)
+		f, fErr := instance.TryF(dbCol)
+		if fErr != nil {
+			return nil, fmt.Errorf("invalid field %q: %w", dbCol, fErr)
 		}
 		insertBuilder = insertBuilder.Returning(f)
 	}
@@ -474,17 +474,17 @@ func (cb *Create[T]) selectByConflictColumns(ctx context.Context, execer sqlx.Ex
 
 	selectBuilder := astql.Select(t)
 	for _, col := range cb.conflictColumns {
-		f, err := instance.TryF(col)
-		if err != nil {
-			return nil, fmt.Errorf("invalid conflict column %q: %w", col, err)
+		f, fErr := instance.TryF(col)
+		if fErr != nil {
+			return nil, fmt.Errorf("invalid conflict column %q: %w", col, fErr)
 		}
-		p, err := instance.TryP(col)
-		if err != nil {
-			return nil, fmt.Errorf("invalid conflict param %q: %w", col, err)
+		p, pErr := instance.TryP(col)
+		if pErr != nil {
+			return nil, fmt.Errorf("invalid conflict param %q: %w", col, pErr)
 		}
-		cond, err := instance.TryC(f, astql.EQ, p)
-		if err != nil {
-			return nil, fmt.Errorf("invalid condition: %w", err)
+		cond, cErr := instance.TryC(f, astql.EQ, p)
+		if cErr != nil {
+			return nil, fmt.Errorf("invalid condition: %w", cErr)
 		}
 		selectBuilder = selectBuilder.Where(cond)
 	}

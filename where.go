@@ -227,13 +227,13 @@ func buildConditionWithInstance(instance *astql.ASTQL, cond Condition) (astql.Co
 	}
 
 	if cond.isBetween {
-		lowP, err := instance.TryP(cond.lowParam)
-		if err != nil {
-			return nil, newParamError(cond.lowParam, err)
+		lowP, lowErr := instance.TryP(cond.lowParam)
+		if lowErr != nil {
+			return nil, newParamError(cond.lowParam, lowErr)
 		}
-		highP, err := instance.TryP(cond.highParam)
-		if err != nil {
-			return nil, newParamError(cond.highParam, err)
+		highP, highErr := instance.TryP(cond.highParam)
+		if highErr != nil {
+			return nil, newParamError(cond.highParam, highErr)
 		}
 		if cond.operator == opBetween {
 			return astql.Between(f, lowP, highP), nil

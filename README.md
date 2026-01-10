@@ -11,62 +11,28 @@
 
 Type-safe SQL query builder for Go with schema validation and multi-database support.
 
-## The Problem
+Extract schema from struct tags, validate queries at initialization, execute with zero reflection.
 
-ORMs in Go typically use string-based field names and runtime reflection:
-
-```go
-db.Where("emial = ?", email).First(&user)  // Typo: "emial" — fails at runtime
-db.Model(&user).Update("status", value)    // Is "status" a valid column?
-```
-
-Field names are validated at runtime, not compile time. Reflection happens on every query. And when you need to support multiple databases, you're back to string interpolation.
-
-## The Solution
-
-Soy validates your schema at initialization, not runtime:
+## Schema Once, Query Forever
 
 ```go
-import "github.com/zoobzio/astql/pkg/postgres"
-
 type User struct {
     ID    int64  `db:"id" type:"bigserial primary key"`
     Email string `db:"email" type:"text unique not null"`
     Name  string `db:"name" type:"text"`
 }
 
-// Schema validated once at startup
+// Schema extracted and validated here — once
 users, _ := soy.New[User](db, "users", postgres.New())
 
-// Type-safe queries — "emial" would fail at initialization, not runtime
+// Every query after: type-safe, zero reflection, validated fields
 user, _ := users.Select().
-    Where("email", "=", "user_email").
-    Exec(ctx, map[string]any{"user_email": "alice@example.com"})
+    Where("email", "=", "email_param").
+    Exec(ctx, map[string]any{"email_param": "alice@example.com"})
+// Returns *User, not interface{}
 ```
 
-You get:
-
-- **Schema validation** — field names checked against struct tags at initialization
-- **Type-safe results** — queries return `*User` or `[]*User`, not `interface{}`
-- **Zero reflection on hot path** — all introspection happens once at startup
-- **Multi-database support** — same API for PostgreSQL, MariaDB, SQLite, SQL Server
-
-## Features
-
-- **Type-safe queries** — full compile-time type checking with Go generics
-- **Schema validation** — queries validated against your schema using [ASTQL](https://github.com/zoobzio/astql)
-- **Schema from structs** — generate DBML schema from struct tags using [Sentinel](https://github.com/zoobzio/sentinel)
-- **Fluent API** — chainable query builders for SELECT, INSERT, UPDATE, DELETE
-- **Aggregate functions** — COUNT, SUM, AVG, MIN, MAX with FILTER clauses
-- **Window functions** — ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, and more
-- **CASE expressions** — fluent API for conditional SQL expressions
-- **Compound queries** — UNION, INTERSECT, EXCEPT for combining result sets
-- **Multi-database** — PostgreSQL, MariaDB, SQLite, SQL Server via ASTQL providers
-
-## Use Cases
-
-- [Implement pagination](docs/4.cookbook/1.pagination.md) — LIMIT/OFFSET and cursor patterns
-- [Add vector search](docs/4.cookbook/2.pgvector.md) — pgvector similarity queries
+Field names validated against struct tags. Type-safe results. No reflection on the hot path.
 
 ## Install
 
@@ -144,42 +110,52 @@ func main() {
 }
 ```
 
-## API Reference
+## Capabilities
 
-| Function | Purpose |
-|----------|---------|
-| `New[T](db, table, renderer)` | Create instance for type T |
-| `Select()` | Single-record SELECT (returns `*T`) |
-| `Query()` | Multi-record SELECT (returns `[]*T`) |
-| `Insert()` | INSERT with RETURNING |
-| `Modify()` | UPDATE (requires WHERE) |
-| `Remove()` | DELETE (requires WHERE) |
-| `Count()`, `Sum(field)`, `Avg(field)`, `Min(field)`, `Max(field)` | Aggregates |
-| `C(field, op, param)` | Create condition for WhereAnd/WhereOr |
-| `Null(field)`, `NotNull(field)` | NULL conditions |
-| `Between(field, low, high)` | BETWEEN condition |
+| Feature           | Description                                                                           | Docs                                        |
+| ----------------- | ------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Type-Safe Queries | Generics return `*T` or `[]*T`, not `interface{}`                                     | [Queries](docs/3.guides/1.queries.md)       |
+| Schema Validation | Field names checked against struct tags at init                                       | [Concepts](docs/2.learn/2.concepts.md)      |
+| Multi-Database    | PostgreSQL, MariaDB, SQLite, SQL Server via [ASTQL](https://github.com/zoobzio/astql) | [Quickstart](docs/2.learn/1.quickstart.md)  |
+| Fluent Builders   | Chainable API for SELECT, INSERT, UPDATE, DELETE                                      | [Mutations](docs/3.guides/2.mutations.md)   |
+| Aggregates        | COUNT, SUM, AVG, MIN, MAX with FILTER clauses                                         | [Aggregates](docs/3.guides/3.aggregates.md) |
+| Window Functions  | ROW_NUMBER, RANK, LAG, LEAD, and more                                                 | [API](docs/5.reference/1.api.md)            |
+| Compound Queries  | UNION, INTERSECT, EXCEPT                                                              | [Compound](docs/3.guides/5.compound.md)     |
+| Safety Guards     | DELETE/UPDATE require WHERE; prevents accidents                                       | [Concepts](docs/2.learn/2.concepts.md)      |
 
-See [API Reference](docs/5.reference/1.api.md) for complete documentation.
+## Why soy?
 
-## Providers
+- **Zero reflection on hot path** — all introspection happens once at `New()`
+- **Type-safe results** — queries return `*T` or `[]*T`, never `interface{}`
+- **Schema validation at init** — field name typos caught immediately, not at runtime
+- **Multi-database parity** — same API across PostgreSQL, MariaDB, SQLite, SQL Server
+- **Safety by default** — DELETE/UPDATE require WHERE; prevents accidental full-table operations
+- **Minimal dependencies** — sqlx plus purpose-built libraries (astql, sentinel, atom)
 
-Use the appropriate provider for your database:
+## Type-Safe Database Layer
+
+Soy enables a pattern: **define types once, query safely everywhere**.
+
+Your struct definitions become the contract. [Sentinel](https://github.com/zoobzio/sentinel) extracts metadata from struct tags. [ASTQL](https://github.com/zoobzio/astql) validates queries against that schema. Soy wraps it all in a fluent API.
 
 ```go
-import (
-    "github.com/zoobzio/astql/pkg/postgres"
-    "github.com/zoobzio/astql/pkg/mariadb"
-    "github.com/zoobzio/astql/pkg/sqlite"
-    "github.com/zoobzio/astql/pkg/mssql"
-)
+// Your domain type — the single source of truth
+type Order struct {
+    ID        int64     `db:"id" type:"bigserial primary key"`
+    UserID    int64     `db:"user_id" type:"bigint not null" references:"users(id)"`
+    Total     float64   `db:"total" type:"numeric(10,2) not null"`
+    Status    string    `db:"status" type:"text" check:"status IN ('pending','paid','shipped')"`
+    CreatedAt time.Time `db:"created_at" type:"timestamptz default now()"`
+}
 
-users, _ := soy.New[User](db, "users", postgres.New())  // PostgreSQL
-users, _ := soy.New[User](db, "users", mariadb.New())   // MariaDB
-users, _ := soy.New[User](db, "users", sqlite.New())    // SQLite
-users, _ := soy.New[User](db, "users", mssql.New())     // SQL Server
+// Soy validates against the schema
+orders, _ := soy.New[Order](db, "orders", postgres.New())
+
+// Invalid field? Caught at init, not runtime
+orders.Select().Where("totla", "=", "x")  // Error: field "totla" not found
 ```
 
-Each provider handles dialect differences automatically.
+Three packages, one type definition, complete safety from struct tags to SQL execution.
 
 ## Documentation
 
@@ -200,12 +176,6 @@ Each provider handles dialect differences automatically.
   - [API](docs/5.reference/1.api.md) — complete function documentation
 
 ## Contributing
-
-Contributions welcome! Please ensure:
-
-- Tests pass: `make test`
-- Code is formatted: `go fmt ./...`
-- No lint errors: `make lint`
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 

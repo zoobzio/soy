@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/zoobzio/astql/pkg/postgres"
+	"github.com/zoobzio/astql/postgres"
 	"github.com/zoobzio/sentinel"
 )
 

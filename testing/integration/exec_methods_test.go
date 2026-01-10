@@ -1,127 +1,18 @@
-package soy
+package integration
 
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
-	astqlpg "github.com/zoobzio/astql/pkg/postgres"
-	"github.com/zoobzio/sentinel"
+	"github.com/zoobzio/astql/postgres"
+	"github.com/zoobzio/soy"
 )
 
-// execTestUser is the model used for execution tests.
-type execTestUser struct {
-	ID    int    `db:"id" type:"serial" constraints:"primarykey"`
-	Email string `db:"email" type:"text" constraints:"notnull,unique"`
-	Name  string `db:"name" type:"text" constraints:"notnull"`
-	Age   *int   `db:"age" type:"integer"`
-}
-
-// execTestDB holds a database connection for execution tests.
-type execTestDB struct {
-	db        *sqlx.DB
-	container *postgres.PostgresContainer
-}
-
-// setupExecTestDB creates a PostgreSQL container and returns a database connection.
-func setupExecTestDB(t *testing.T) *execTestDB {
-	t.Helper()
-	ctx := context.Background()
-
-	pgContainer, err := postgres.Run(ctx,
-		"postgres:16-alpine",
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("test"),
-		postgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(30*time.Second),
-		),
-	)
-	if err != nil {
-		t.Fatalf("failed to start postgres container: %v", err)
-	}
-
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("failed to get connection string: %v", err)
-	}
-
-	db, err := sqlx.Connect("postgres", connStr)
-	if err != nil {
-		t.Fatalf("failed to connect to database: %v", err)
-	}
-
-	return &execTestDB{
-		db:        db,
-		container: pgContainer,
-	}
-}
-
-// cleanup closes the database and terminates the container.
-func (tdb *execTestDB) cleanup(t *testing.T) {
-	t.Helper()
-	if tdb.db != nil {
-		tdb.db.Close()
-	}
-	if tdb.container != nil {
-		if err := tdb.container.Terminate(context.Background()); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	}
-}
-
-// createExecTestTable creates the test table.
-func createExecTestTable(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	ctx := context.Background()
-	_, err := db.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS exec_test_users (
-			id SERIAL PRIMARY KEY,
-			email TEXT NOT NULL UNIQUE,
-			name TEXT NOT NULL,
-			age INTEGER
-		)
-	`)
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
-}
-
-// truncateExecTestTable clears the test table.
-func truncateExecTestTable(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	ctx := context.Background()
-	_, err := db.ExecContext(ctx, `TRUNCATE TABLE exec_test_users RESTART IDENTITY`)
-	if err != nil {
-		t.Fatalf("failed to truncate table: %v", err)
-	}
-}
-
-// intPtrExec returns a pointer to an int.
-func intPtrExec(i int) *int {
-	return &i
-}
-
-func init() {
-	sentinel.Tag("db")
-	sentinel.Tag("type")
-	sentinel.Tag("constraints")
-	sentinel.Tag("default")
-}
-
+// TestExec_Insert tests all Insert execution method variants.
 func TestExec_Insert(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -129,13 +20,13 @@ func TestExec_Insert(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("ConflictUpdate.Exec convenience method", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// First insert
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "conflict@example.com",
 			Name:  "Original",
-			Age:   intPtrExec(25),
+			Age:   intPtr(25),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
@@ -146,10 +37,10 @@ func TestExec_Insert(t *testing.T) {
 			OnConflict("email").
 			DoUpdate().
 			Set("name", "name").
-			Exec(ctx, &execTestUser{
+			Exec(ctx, &TestUser{
 				Email: "conflict@example.com",
 				Name:  "Updated",
-				Age:   intPtrExec(30),
+				Age:   intPtr(30),
 			})
 		if err != nil {
 			t.Fatalf("ConflictUpdate.Exec() failed: %v", err)
@@ -161,12 +52,12 @@ func TestExec_Insert(t *testing.T) {
 	})
 
 	t.Run("Insert.Exec", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		user, err := c.Insert().Exec(ctx, &execTestUser{
+		user, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "test@example.com",
 			Name:  "Test User",
-			Age:   intPtrExec(25),
+			Age:   intPtr(25),
 		})
 		if err != nil {
 			t.Fatalf("Insert().Exec() failed: %v", err)
@@ -181,17 +72,17 @@ func TestExec_Insert(t *testing.T) {
 	})
 
 	t.Run("Insert.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
 
-		user, err := c.Insert().ExecTx(ctx, tx, &execTestUser{
+		user, err := c.Insert().ExecTx(ctx, tx, &TestUser{
 			Email: "tx@example.com",
 			Name:  "TX User",
-			Age:   intPtrExec(30),
+			Age:   intPtr(30),
 		})
 		if err != nil {
 			tx.Rollback()
@@ -208,7 +99,7 @@ func TestExec_Insert(t *testing.T) {
 	})
 
 	t.Run("Insert.ExecAtom", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		atom, err := c.Insert().ExecAtom(ctx, map[string]any{
 			"email": "insertatom@example.com",
@@ -231,9 +122,9 @@ func TestExec_Insert(t *testing.T) {
 	})
 
 	t.Run("Insert.ExecTxAtom", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -258,12 +149,11 @@ func TestExec_Insert(t *testing.T) {
 	})
 }
 
+// TestExec_Select tests all Select execution method variants.
 func TestExec_Select(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -271,13 +161,13 @@ func TestExec_Select(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Select.Exec", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "select@example.com",
 			Name:  "Select User",
-			Age:   intPtrExec(25),
+			Age:   intPtr(25),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
@@ -296,19 +186,19 @@ func TestExec_Select(t *testing.T) {
 	})
 
 	t.Run("Select.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "selecttx@example.com",
 			Name:  "Select TX User",
-			Age:   intPtrExec(30),
+			Age:   intPtr(30),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -329,13 +219,13 @@ func TestExec_Select(t *testing.T) {
 	})
 
 	t.Run("Select.ExecAtom", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "selectatom@example.com",
 			Name:  "Select Atom User",
-			Age:   intPtrExec(35),
+			Age:   intPtr(35),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
@@ -357,19 +247,19 @@ func TestExec_Select(t *testing.T) {
 	})
 
 	t.Run("Select.ExecTxAtom", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "selecttxatom@example.com",
 			Name:  "Select TX Atom User",
-			Age:   intPtrExec(36),
+			Age:   intPtr(36),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -390,12 +280,11 @@ func TestExec_Select(t *testing.T) {
 	})
 }
 
+// TestExec_Query tests all Query execution method variants.
 func TestExec_Query(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -403,14 +292,14 @@ func TestExec_Query(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Query.Exec", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for _, email := range []string{"a@example.com", "b@example.com", "c@example.com"} {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: email,
 				Name:  "User",
-				Age:   intPtrExec(25),
+				Age:   intPtr(25),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
@@ -428,19 +317,19 @@ func TestExec_Query(t *testing.T) {
 	})
 
 	t.Run("Query.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "querytx@example.com",
 			Name:  "Query TX User",
-			Age:   intPtrExec(30),
+			Age:   intPtr(30),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -459,14 +348,14 @@ func TestExec_Query(t *testing.T) {
 	})
 
 	t.Run("Query.ExecAtom", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for i, email := range []string{"atom1@example.com", "atom2@example.com"} {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: email,
 				Name:  "Atom User",
-				Age:   intPtrExec(20 + i*5),
+				Age:   intPtr(20 + i*5),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
@@ -491,19 +380,19 @@ func TestExec_Query(t *testing.T) {
 	})
 
 	t.Run("Query.ExecTxAtom", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "querytxatom@example.com",
 			Name:  "Query TX Atom User",
-			Age:   intPtrExec(50),
+			Age:   intPtr(50),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -526,12 +415,11 @@ func TestExec_Query(t *testing.T) {
 	})
 }
 
+// TestExec_Update tests all Update execution method variants.
 func TestExec_Update(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -539,13 +427,13 @@ func TestExec_Update(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Modify.Exec", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "update@example.com",
 			Name:  "Update User",
-			Age:   intPtrExec(25),
+			Age:   intPtr(25),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
@@ -568,19 +456,19 @@ func TestExec_Update(t *testing.T) {
 	})
 
 	t.Run("Modify.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "updatetx@example.com",
 			Name:  "Update TX User",
-			Age:   intPtrExec(30),
+			Age:   intPtr(30),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -607,12 +495,11 @@ func TestExec_Update(t *testing.T) {
 	})
 }
 
+// TestExec_Delete tests all Delete execution method variants.
 func TestExec_Delete(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -620,19 +507,19 @@ func TestExec_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Remove.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		_, err := c.Insert().Exec(ctx, &execTestUser{
+		_, err := c.Insert().Exec(ctx, &TestUser{
 			Email: "deletetx@example.com",
 			Name:  "Delete TX User",
-			Age:   intPtrExec(30),
+			Age:   intPtr(30),
 		})
 		if err != nil {
 			t.Fatalf("Insert failed: %v", err)
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -664,12 +551,11 @@ func TestExec_Delete(t *testing.T) {
 	})
 }
 
+// TestExec_Aggregate tests all Aggregate execution method variants.
 func TestExec_Aggregate(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -677,21 +563,21 @@ func TestExec_Aggregate(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Count.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for i := 0; i < 3; i++ {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: "count" + string(rune('a'+i)) + "@example.com",
 				Name:  "Count User",
-				Age:   intPtrExec(25 + i),
+				Age:   intPtr(25 + i),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
 			}
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -710,12 +596,11 @@ func TestExec_Aggregate(t *testing.T) {
 	})
 }
 
+// TestExec_Compound tests all Compound execution method variants.
 func TestExec_Compound(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -723,13 +608,13 @@ func TestExec_Compound(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Compound.Exec", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		users := []*execTestUser{
-			{Email: "alice@example.com", Name: "Alice", Age: intPtrExec(25)},
-			{Email: "bob@example.com", Name: "Bob", Age: intPtrExec(30)},
-			{Email: "charlie@example.com", Name: "Charlie", Age: intPtrExec(35)},
+		users := []*TestUser{
+			{Email: "alice@example.com", Name: "Alice", Age: intPtr(25)},
+			{Email: "bob@example.com", Name: "Bob", Age: intPtr(30)},
+			{Email: "charlie@example.com", Name: "Charlie", Age: intPtr(35)},
 		}
 		for _, u := range users {
 			_, err := c.Insert().Exec(ctx, u)
@@ -758,12 +643,12 @@ func TestExec_Compound(t *testing.T) {
 	})
 
 	t.Run("Compound.ExecTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
-		users := []*execTestUser{
-			{Email: "alice@example.com", Name: "Alice", Age: intPtrExec(25)},
-			{Email: "bob@example.com", Name: "Bob", Age: intPtrExec(30)},
+		users := []*TestUser{
+			{Email: "alice@example.com", Name: "Alice", Age: intPtr(25)},
+			{Email: "bob@example.com", Name: "Bob", Age: intPtr(30)},
 		}
 		for _, u := range users {
 			_, err := c.Insert().Exec(ctx, u)
@@ -772,7 +657,7 @@ func TestExec_Compound(t *testing.T) {
 			}
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -799,12 +684,11 @@ func TestExec_Compound(t *testing.T) {
 	})
 }
 
+// TestExec_Batch tests all Batch execution method variants.
 func TestExec_Batch(t *testing.T) {
-	tdb := setupExecTestDB(t)
-	defer tdb.cleanup(t)
-	createExecTestTable(t, tdb.db)
+	db := getTestDB(t)
 
-	c, err := New[execTestUser](tdb.db, "exec_test_users", astqlpg.New())
+	c, err := soy.New[TestUser](db, "test_users", postgres.New())
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -812,12 +696,12 @@ func TestExec_Batch(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Insert.ExecBatch", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		users := []*execTestUser{
-			{Email: "batch1@example.com", Name: "Batch 1", Age: intPtrExec(25)},
-			{Email: "batch2@example.com", Name: "Batch 2", Age: intPtrExec(30)},
-			{Email: "batch3@example.com", Name: "Batch 3", Age: intPtrExec(35)},
+		users := []*TestUser{
+			{Email: "batch1@example.com", Name: "Batch 1", Age: intPtr(25)},
+			{Email: "batch2@example.com", Name: "Batch 2", Age: intPtr(30)},
+			{Email: "batch3@example.com", Name: "Batch 3", Age: intPtr(35)},
 		}
 
 		affected, err := c.Insert().ExecBatch(ctx, users)
@@ -840,16 +724,16 @@ func TestExec_Batch(t *testing.T) {
 	})
 
 	t.Run("Insert.ExecBatchTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
 
-		users := []*execTestUser{
-			{Email: "batchtx1@example.com", Name: "Batch TX 1", Age: intPtrExec(25)},
-			{Email: "batchtx2@example.com", Name: "Batch TX 2", Age: intPtrExec(30)},
+		users := []*TestUser{
+			{Email: "batchtx1@example.com", Name: "Batch TX 1", Age: intPtr(25)},
+			{Email: "batchtx2@example.com", Name: "Batch TX 2", Age: intPtr(30)},
 		}
 
 		affected, err := c.Insert().ExecBatchTx(ctx, tx, users)
@@ -868,14 +752,14 @@ func TestExec_Batch(t *testing.T) {
 	})
 
 	t.Run("Modify.ExecBatch", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for i := 0; i < 3; i++ {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: "modifybatch" + string(rune('a'+i)) + "@example.com",
 				Name:  "User " + string(rune('A'+i)),
-				Age:   intPtrExec(25),
+				Age:   intPtr(25),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
@@ -901,14 +785,14 @@ func TestExec_Batch(t *testing.T) {
 	})
 
 	t.Run("Remove.ExecBatch", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for i := 0; i < 3; i++ {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: "removebatch" + string(rune('a'+i)) + "@example.com",
 				Name:  "User " + string(rune('A'+i)),
-				Age:   intPtrExec(25),
+				Age:   intPtr(25),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
@@ -942,21 +826,21 @@ func TestExec_Batch(t *testing.T) {
 	})
 
 	t.Run("Modify.ExecBatchTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for i := 0; i < 3; i++ {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: "modifybatchtx" + string(rune('a'+i)) + "@example.com",
 				Name:  "User " + string(rune('A'+i)),
-				Age:   intPtrExec(25),
+				Age:   intPtr(25),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
 			}
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
@@ -996,21 +880,21 @@ func TestExec_Batch(t *testing.T) {
 	})
 
 	t.Run("Remove.ExecBatchTx", func(t *testing.T) {
-		truncateExecTestTable(t, tdb.db)
+		truncateTestTable(t, db)
 
 		// Insert test data
 		for i := 0; i < 3; i++ {
-			_, err := c.Insert().Exec(ctx, &execTestUser{
+			_, err := c.Insert().Exec(ctx, &TestUser{
 				Email: "removebatchtx" + string(rune('a'+i)) + "@example.com",
 				Name:  "User " + string(rune('A'+i)),
-				Age:   intPtrExec(25),
+				Age:   intPtr(25),
 			})
 			if err != nil {
 				t.Fatalf("Insert failed: %v", err)
 			}
 		}
 
-		tx, err := tdb.db.BeginTxx(ctx, nil)
+		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}

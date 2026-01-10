@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/zoobzio/atom"
 	"github.com/zoobzio/capitan"
+	"github.com/zoobzio/soy/internal/scanner"
 )
 
 // execMultipleRows is a shared helper for executing queries that return multiple rows.
@@ -83,7 +84,7 @@ func execMultipleRows[T any](
 func execAtomSingleRow(
 	ctx context.Context,
 	execer sqlx.ExtContext,
-	scanner *atom.Scanner,
+	sc *scanner.Scanner,
 	sql string,
 	params map[string]any,
 	tableName string,
@@ -123,7 +124,7 @@ func execAtomSingleRow(
 	}
 
 	// Scan directly into atom
-	result, err := scanner.Scan(rows)
+	result, err := sc.Scan(rows)
 	if err != nil {
 		durationMs := time.Since(startTime).Milliseconds()
 		capitan.Error(ctx, QueryFailed,
@@ -162,7 +163,7 @@ func execAtomSingleRow(
 func execAtomMultipleRows(
 	ctx context.Context,
 	execer sqlx.ExtContext,
-	scanner *atom.Scanner,
+	sc *scanner.Scanner,
 	sql string,
 	params map[string]any,
 	tableName string,
@@ -190,7 +191,7 @@ func execAtomMultipleRows(
 	defer func() { _ = rows.Close() }()
 
 	// Scan all rows directly into atoms
-	atoms, err := scanner.ScanAll(rows, rows.Next)
+	atoms, err := sc.ScanAll(rows, rows.Next)
 	if err != nil {
 		durationMs := time.Since(startTime).Milliseconds()
 		capitan.Error(ctx, QueryFailed,

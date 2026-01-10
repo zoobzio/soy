@@ -9,6 +9,7 @@ import (
 	"github.com/zoobzio/atom"
 	"github.com/zoobzio/capitan"
 	"github.com/zoobzio/sentinel"
+	"github.com/zoobzio/soy/internal/scanner"
 )
 
 // soyExecutor provides the interface for executing queries.
@@ -17,7 +18,7 @@ type soyExecutor interface {
 	execer() sqlx.ExtContext
 	getTableName() string
 	renderer() astql.Renderer
-	atomScanner() *atom.Scanner
+	atomScanner() *scanner.Scanner
 	getMetadata() sentinel.Metadata
 	getInstance() *astql.ASTQL
 }

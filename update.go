@@ -212,33 +212,7 @@ func (ub *Update[T]) WhereNotNull(field string) *Update[T] {
 //	.WhereBetween("age", "min_age", "max_age")
 //	// params: map[string]any{"min_age": 18, "max_age": 65}
 func (ub *Update[T]) WhereBetween(field, lowParam, highParam string) *Update[T] {
-	if ub.err != nil {
-		return ub
-	}
-
-	f, err := ub.instance.TryF(field)
-	if err != nil {
-		ub.err = newFieldError(field, err)
-		return ub
-	}
-
-	lowP, err := ub.instance.TryP(lowParam)
-	if err != nil {
-		ub.err = fmt.Errorf("invalid low param %q: %w", lowParam, err)
-		return ub
-	}
-
-	highP, err := ub.instance.TryP(highParam)
-	if err != nil {
-		ub.err = fmt.Errorf("invalid high param %q: %w", highParam, err)
-		return ub
-	}
-
-	condition := astql.Between(f, lowP, highP)
-	ub.builder = ub.builder.Where(condition)
-	ub.whereItems = append(ub.whereItems, condition)
-	ub.hasWhere = true
-	return ub
+	return ub.whereBetweenHelper(field, lowParam, highParam, false)
 }
 
 // WhereNotBetween adds a WHERE field NOT BETWEEN low AND high condition.
@@ -249,6 +223,11 @@ func (ub *Update[T]) WhereBetween(field, lowParam, highParam string) *Update[T] 
 //	.WhereNotBetween("age", "min_age", "max_age")
 //	// params: map[string]any{"min_age": 18, "max_age": 65}
 func (ub *Update[T]) WhereNotBetween(field, lowParam, highParam string) *Update[T] {
+	return ub.whereBetweenHelper(field, lowParam, highParam, true)
+}
+
+// whereBetweenHelper is a shared helper for WhereBetween and WhereNotBetween.
+func (ub *Update[T]) whereBetweenHelper(field, lowParam, highParam string, negate bool) *Update[T] {
 	if ub.err != nil {
 		return ub
 	}
@@ -271,7 +250,12 @@ func (ub *Update[T]) WhereNotBetween(field, lowParam, highParam string) *Update[
 		return ub
 	}
 
-	condition := astql.NotBetween(f, lowP, highP)
+	var condition astql.ConditionItem
+	if negate {
+		condition = astql.NotBetween(f, lowP, highP)
+	} else {
+		condition = astql.Between(f, lowP, highP)
+	}
 	ub.builder = ub.builder.Where(condition)
 	ub.whereItems = append(ub.whereItems, condition)
 	ub.hasWhere = true
