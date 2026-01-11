@@ -86,35 +86,60 @@ func assignDest(dest, val any) {
 			if v != nil {
 				d.String = *v
 				d.Valid = true
+			} else {
+				d.Valid = false
 			}
+		} else if v, ok := val.(string); ok {
+			d.String = v
+			d.Valid = true
 		}
 	case *sql.NullInt64:
 		if v, ok := val.(*int64); ok {
 			if v != nil {
 				d.Int64 = *v
 				d.Valid = true
+			} else {
+				d.Valid = false
 			}
+		} else if v, ok := val.(int64); ok {
+			d.Int64 = v
+			d.Valid = true
 		}
 	case *sql.NullFloat64:
 		if v, ok := val.(*float64); ok {
 			if v != nil {
 				d.Float64 = *v
 				d.Valid = true
+			} else {
+				d.Valid = false
 			}
+		} else if v, ok := val.(float64); ok {
+			d.Float64 = v
+			d.Valid = true
 		}
 	case *sql.NullBool:
 		if v, ok := val.(*bool); ok {
 			if v != nil {
 				d.Bool = *v
 				d.Valid = true
+			} else {
+				d.Valid = false
 			}
+		} else if v, ok := val.(bool); ok {
+			d.Bool = v
+			d.Valid = true
 		}
 	case *sql.NullTime:
 		if v, ok := val.(*time.Time); ok {
 			if v != nil {
 				d.Time = *v
 				d.Valid = true
+			} else {
+				d.Valid = false
 			}
+		} else if v, ok := val.(time.Time); ok {
+			d.Time = v
+			d.Valid = true
 		}
 	case *any:
 		*d = val
@@ -537,5 +562,107 @@ func TestAllocateAtom(t *testing.T) {
 	}
 	if a.Times != nil {
 		t.Error("Times map should not be allocated")
+	}
+}
+
+func TestFieldPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		path      []string
+		fieldName string
+		want      string
+	}{
+		{"empty path", nil, "Field", "Field"},
+		{"empty path explicit", []string{}, "Name", "Name"},
+		{"single level path", []string{"Parent"}, "Child", "Parent.Child"},
+		{"multi level path", []string{"A", "B", "C"}, "D", "A.B.C.D"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fieldPath(tt.path, tt.fieldName)
+			if got != tt.want {
+				t.Errorf("fieldPath(%v, %q) = %q, want %q", tt.path, tt.fieldName, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestScanAll_PointerAliasing(t *testing.T) {
+	// Test that pointer fields don't alias across rows
+	// This was a bug where all atoms would point to the same memory
+	metadata := buildMetadata[testUserWithPointers]()
+	s, err := New(metadata)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	// Create mock with nullable values
+	age1, age2, age3 := int64(25), int64(30), int64(35)
+	nick1, nick2 := "alice_nick", "bob_nick"
+
+	mock := &mockColScanner{
+		columns: []string{"id", "name", "nickname", "age"},
+		rows: [][]any{
+			{int64(1), "Alice", &nick1, &age1},
+			{int64(2), "Bob", &nick2, &age2},
+			{int64(3), "Charlie", (*string)(nil), &age3},
+		},
+	}
+
+	rowIdx := 0
+	next := func() bool {
+		if rowIdx >= len(mock.rows) {
+			return false
+		}
+		rowIdx++
+		return true
+	}
+
+	results, err := s.ScanAll(mock, next)
+	if err != nil {
+		t.Fatalf("ScanAll() error = %v", err)
+	}
+
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+
+	// Verify each atom has distinct pointer values
+	if results[0].IntPtrs["Age"] == nil {
+		t.Error("results[0].Age should not be nil")
+	} else if *results[0].IntPtrs["Age"] != 25 {
+		t.Errorf("results[0].Age = %d, want 25", *results[0].IntPtrs["Age"])
+	}
+
+	if results[1].IntPtrs["Age"] == nil {
+		t.Error("results[1].Age should not be nil")
+	} else if *results[1].IntPtrs["Age"] != 30 {
+		t.Errorf("results[1].Age = %d, want 30", *results[1].IntPtrs["Age"])
+	}
+
+	if results[2].IntPtrs["Age"] == nil {
+		t.Error("results[2].Age should not be nil")
+	} else if *results[2].IntPtrs["Age"] != 35 {
+		t.Errorf("results[2].Age = %d, want 35", *results[2].IntPtrs["Age"])
+	}
+
+	// Verify pointer addresses are different (not aliased)
+	if results[0].IntPtrs["Age"] == results[1].IntPtrs["Age"] {
+		t.Error("results[0].Age and results[1].Age should not point to same memory")
+	}
+	if results[1].IntPtrs["Age"] == results[2].IntPtrs["Age"] {
+		t.Error("results[1].Age and results[2].Age should not point to same memory")
+	}
+
+	// Verify string pointers
+	if results[0].StringPtrs["Nickname"] == nil {
+		t.Error("results[0].Nickname should not be nil")
+	} else if *results[0].StringPtrs["Nickname"] != "alice_nick" {
+		t.Errorf("results[0].Nickname = %q, want %q", *results[0].StringPtrs["Nickname"], "alice_nick")
+	}
+
+	if results[2].StringPtrs["Nickname"] != nil {
+		t.Error("results[2].Nickname should be nil")
 	}
 }

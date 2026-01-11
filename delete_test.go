@@ -474,3 +474,147 @@ func TestDelete_ErrorPaths(t *testing.T) {
 		}
 	})
 }
+
+func TestDelete_WhereBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereBetween basic", func(t *testing.T) {
+		result, err := soy.Remove().
+			WhereBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "BETWEEN") {
+			t.Errorf("SQL missing BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		if len(result.RequiredParams) != 2 {
+			t.Errorf("Expected 2 required params, got %d", len(result.RequiredParams))
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("WhereBetween with invalid field", func(t *testing.T) {
+		_, err := soy.Remove().
+			WhereBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+}
+
+func TestDelete_WhereNotBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereNotBetween basic", func(t *testing.T) {
+		result, err := soy.Remove().
+			WhereNotBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NOT BETWEEN") {
+			t.Errorf("SQL missing NOT BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("WhereNotBetween with invalid field", func(t *testing.T) {
+		_, err := soy.Remove().
+			WhereNotBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+}
+
+func TestDelete_WhereFields(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[deleteTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereFields basic", func(t *testing.T) {
+		result, err := soy.Remove().
+			WhereFields("email", "=", "name").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"email"`) {
+			t.Errorf("SQL missing email field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"name"`) {
+			t.Errorf("SQL missing name field: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("WhereFields with invalid left field", func(t *testing.T) {
+		_, err := soy.Remove().
+			WhereFields("nonexistent", "=", "name").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+
+	t.Run("WhereFields with invalid right field", func(t *testing.T) {
+		_, err := soy.Remove().
+			WhereFields("email", "=", "nonexistent").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+
+	t.Run("WhereFields with invalid operator", func(t *testing.T) {
+		_, err := soy.Remove().
+			WhereFields("email", "INVALID", "name").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid operator")
+		}
+	})
+}

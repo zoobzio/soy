@@ -240,3 +240,153 @@ func TestSimpleSentinelErrors(t *testing.T) {
 		}
 	})
 }
+
+func TestTableError(t *testing.T) {
+	t.Run("Is matches ErrInvalidTable", func(t *testing.T) {
+		err := newTableError("users", errors.New("not found"))
+
+		if !errors.Is(err, ErrInvalidTable) {
+			t.Error("expected newTableError to match ErrInvalidTable")
+		}
+		if errors.Is(err, ErrInvalidField) {
+			t.Error("expected newTableError NOT to match ErrInvalidField")
+		}
+	})
+
+	t.Run("Error message formatting", func(t *testing.T) {
+		err := newTableError("orders", errors.New("schema mismatch"))
+		msg := err.Error()
+		if msg != `invalid table "orders": schema mismatch` {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+}
+
+func TestQueryError_AllPhases(t *testing.T) {
+	t.Run("render phase Error message", func(t *testing.T) {
+		err := newRenderError("UPDATE", errors.New("invalid AST"))
+		msg := err.Error()
+		if msg != "failed to render UPDATE query: invalid AST" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+
+	t.Run("execution phase Error message", func(t *testing.T) {
+		err := newQueryError("SELECT", errors.New("connection refused"))
+		msg := err.Error()
+		if msg != "SELECT query failed: connection refused" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+
+	t.Run("scan phase Error message", func(t *testing.T) {
+		err := newScanError("INSERT", errors.New("type mismatch"))
+		msg := err.Error()
+		if msg != "failed to scan INSERT result: type mismatch" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+
+	t.Run("iteration phase Error message", func(t *testing.T) {
+		err := newIterationError(errors.New("cursor closed"))
+		msg := err.Error()
+		if msg != "error iterating rows: cursor closed" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+
+	t.Run("unknown phase Error message", func(t *testing.T) {
+		err := &QueryError{Operation: "MERGE", Phase: "unknown", Err: errors.New("test")}
+		msg := err.Error()
+		if msg != "MERGE failed: test" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+}
+
+func TestBuilderError_ErrorMessage(t *testing.T) {
+	t.Run("Error message formatting", func(t *testing.T) {
+		err := newBuilderError("select", errors.New("invalid field"))
+		msg := err.Error()
+		if msg != "select builder has errors: invalid field" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+}
+
+func TestUnsafeOperationError_ErrorMessage(t *testing.T) {
+	t.Run("UPDATE Error message", func(t *testing.T) {
+		err := &UnsafeOperationError{Operation: "UPDATE"}
+		msg := err.Error()
+		if msg != "UPDATE requires at least one WHERE condition to prevent accidental full-table operation" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+
+	t.Run("DELETE Error message", func(t *testing.T) {
+		err := &UnsafeOperationError{Operation: "DELETE"}
+		msg := err.Error()
+		if msg != "DELETE requires at least one WHERE condition to prevent accidental full-table operation" {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+}
+
+func TestValidationError_MessageField(t *testing.T) {
+	t.Run("Error uses Message when set", func(t *testing.T) {
+		err := &ValidationError{
+			Kind:    "field",
+			Name:    "test",
+			Message: "custom message",
+		}
+		if err.Error() != "custom message" {
+			t.Errorf("Error() = %q, expected custom message", err.Error())
+		}
+	})
+
+	t.Run("Error uses Kind and Name when no Message or Err", func(t *testing.T) {
+		err := &ValidationError{
+			Kind: "operator",
+			Name: "~~",
+		}
+		if err.Error() != `invalid operator "~~"` {
+			t.Errorf("Error() = %q, unexpected format", err.Error())
+		}
+	})
+}
+
+func TestNullsOrderingError(t *testing.T) {
+	t.Run("Is matches ErrInvalidNullsOrdering", func(t *testing.T) {
+		err := newNullsOrderingError("middle")
+
+		if !errors.Is(err, ErrInvalidNullsOrdering) {
+			t.Error("expected newNullsOrderingError to match ErrInvalidNullsOrdering")
+		}
+	})
+
+	t.Run("Error message formatting", func(t *testing.T) {
+		err := newNullsOrderingError("middle")
+		msg := err.Error()
+		if msg != `invalid nulls ordering "middle", must be 'first' or 'last'` {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+}
+
+func TestAggregateFuncError(t *testing.T) {
+	t.Run("Is matches ErrInvalidAggregateFunc", func(t *testing.T) {
+		err := newAggregateFuncError("median")
+
+		if !errors.Is(err, ErrInvalidAggregateFunc) {
+			t.Error("expected newAggregateFuncError to match ErrInvalidAggregateFunc")
+		}
+	})
+
+	t.Run("Error message formatting", func(t *testing.T) {
+		err := newAggregateFuncError("median")
+		msg := err.Error()
+		if msg != `invalid aggregate function "median", must be one of: count, sum, avg, min, max, count_distinct` {
+			t.Errorf("Error() = %q, unexpected format", msg)
+		}
+	})
+}

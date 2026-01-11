@@ -806,3 +806,172 @@ func TestAggregate_Validation(t *testing.T) {
 		}
 	})
 }
+
+func TestAggregate_WhereBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereBetween basic", func(t *testing.T) {
+		result, err := soy.Count().
+			WhereBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "BETWEEN") {
+			t.Errorf("SQL missing BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		if len(result.RequiredParams) != 2 {
+			t.Errorf("Expected 2 required params, got %d", len(result.RequiredParams))
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("WhereBetween with invalid field", func(t *testing.T) {
+		_, err := soy.Count().
+			WhereBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+
+	t.Run("WhereBetween with all aggregate types", func(t *testing.T) {
+		builders := map[string]*Aggregate[aggregateTestUser]{
+			"Min":   soy.Min("age").WhereBetween("age", "lo", "hi"),
+			"Max":   soy.Max("age").WhereBetween("age", "lo", "hi"),
+			"Sum":   soy.Sum("age").WhereBetween("age", "lo", "hi"),
+			"Avg":   soy.Avg("age").WhereBetween("age", "lo", "hi"),
+			"Count": soy.Count().WhereBetween("age", "lo", "hi"),
+		}
+
+		for name, builder := range builders {
+			result, err := builder.Render()
+			if err != nil {
+				t.Errorf("%s: Render() failed: %v", name, err)
+				continue
+			}
+			if !strings.Contains(result.SQL, "BETWEEN") {
+				t.Errorf("%s: SQL missing BETWEEN: %s", name, result.SQL)
+			}
+		}
+	})
+}
+
+func TestAggregate_WhereNotBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereNotBetween basic", func(t *testing.T) {
+		result, err := soy.Count().
+			WhereNotBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NOT BETWEEN") {
+			t.Errorf("SQL missing NOT BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		if len(result.RequiredParams) != 2 {
+			t.Errorf("Expected 2 required params, got %d", len(result.RequiredParams))
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("WhereNotBetween with invalid field", func(t *testing.T) {
+		_, err := soy.Count().
+			WhereNotBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+}
+
+func TestAggregate_WhereFields(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[aggregateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereFields basic", func(t *testing.T) {
+		result, err := soy.Count().
+			WhereFields("email", "=", "name").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "WHERE") {
+			t.Errorf("SQL missing WHERE: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"email"`) {
+			t.Errorf("SQL missing email field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"name"`) {
+			t.Errorf("SQL missing name field: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+	})
+
+	t.Run("WhereFields with invalid left field", func(t *testing.T) {
+		_, err := soy.Count().
+			WhereFields("nonexistent", "=", "name").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+
+	t.Run("WhereFields with invalid right field", func(t *testing.T) {
+		_, err := soy.Count().
+			WhereFields("email", "=", "nonexistent").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+
+	t.Run("WhereFields with invalid operator", func(t *testing.T) {
+		_, err := soy.Count().
+			WhereFields("email", "INVALID", "name").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid operator")
+		}
+	})
+}

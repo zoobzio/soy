@@ -223,6 +223,82 @@ func TestCompoundModifiers(t *testing.T) {
 	})
 }
 
+func TestCompoundParamModifiers(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+
+	soy, err := New[compoundTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("LimitParam", func(t *testing.T) {
+		q1 := soy.Query().Where("age", ">=", "min_age")
+		q2 := soy.Query().Where("name", "=", "target_name")
+
+		compound := q1.Union(q2).LimitParam("page_size")
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "age" >= :q0_min_age) UNION (SELECT * FROM "users" WHERE "name" = :q1_target_name) LIMIT :page_size`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+
+		// Check that page_size is in required params
+		found := false
+		for _, p := range result.RequiredParams {
+			if p == "page_size" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected page_size in required params: %v", result.RequiredParams)
+		}
+	})
+
+	t.Run("OffsetParam", func(t *testing.T) {
+		q1 := soy.Query().Where("age", ">=", "min_age")
+		q2 := soy.Query().Where("name", "=", "target_name")
+
+		compound := q1.Union(q2).OffsetParam("page_offset")
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "age" >= :q0_min_age) UNION (SELECT * FROM "users" WHERE "name" = :q1_target_name) OFFSET :page_offset`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+
+		// Check that page_offset is in required params
+		found := false
+		for _, p := range result.RequiredParams {
+			if p == "page_offset" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected page_offset in required params: %v", result.RequiredParams)
+		}
+	})
+
+	t.Run("LimitParam + OffsetParam", func(t *testing.T) {
+		q1 := soy.Query().Where("age", ">=", "min_age")
+		q2 := soy.Query().Where("name", "=", "target_name")
+
+		compound := q1.Union(q2).LimitParam("limit").OffsetParam("offset")
+		result := compound.MustRender()
+
+		expectedSQL := `(SELECT * FROM "users" WHERE "age" >= :q0_min_age) UNION (SELECT * FROM "users" WHERE "name" = :q1_target_name) LIMIT :limit OFFSET :offset`
+		if result.SQL != expectedSQL {
+			t.Errorf("Expected SQL %q, got %q", expectedSQL, result.SQL)
+		}
+	})
+}
+
 func TestCompoundChaining(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")

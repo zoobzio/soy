@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/zoobzio/astql/postgres"
 	"github.com/zoobzio/soy"
@@ -101,10 +102,12 @@ func TestExec_Insert(t *testing.T) {
 	t.Run("Insert.ExecAtom", func(t *testing.T) {
 		truncateTestTable(t, db)
 
+		now := time.Now()
 		atom, err := c.Insert().ExecAtom(ctx, map[string]any{
-			"email": "insertatom@example.com",
-			"name":  "Insert Atom User",
-			"age":   40,
+			"email":      "insertatom@example.com",
+			"name":       "Insert Atom User",
+			"age":        40,
+			"created_at": now,
 		})
 		if err != nil {
 			t.Fatalf("Insert().ExecAtom() failed: %v", err)
@@ -129,10 +132,12 @@ func TestExec_Insert(t *testing.T) {
 			t.Fatalf("BeginTxx() failed: %v", err)
 		}
 
+		now := time.Now()
 		atom, err := c.Insert().ExecTxAtom(ctx, tx, map[string]any{
-			"email": "txatom@example.com",
-			"name":  "TX Atom User",
-			"age":   45,
+			"email":      "txatom@example.com",
+			"name":       "TX Atom User",
+			"age":        45,
+			"created_at": now,
 		})
 		if err != nil {
 			tx.Rollback()

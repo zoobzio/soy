@@ -679,6 +679,94 @@ func TestUpdate_ErrorPaths(t *testing.T) {
 	})
 }
 
+func TestUpdate_WhereBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[updateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereBetween basic", func(t *testing.T) {
+		result, err := soy.Modify().
+			Set("name", "new_name").
+			WhereBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "BETWEEN") {
+			t.Errorf("SQL missing BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		if len(result.RequiredParams) < 3 { // set param + between params
+			t.Errorf("Expected at least 3 required params, got %d", len(result.RequiredParams))
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("WhereBetween with invalid field", func(t *testing.T) {
+		_, err := soy.Modify().
+			Set("name", "new_name").
+			WhereBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+}
+
+func TestUpdate_WhereNotBetween(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[updateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("WhereNotBetween basic", func(t *testing.T) {
+		result, err := soy.Modify().
+			Set("name", "new_name").
+			WhereNotBetween("age", "min_age", "max_age").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "NOT BETWEEN") {
+			t.Errorf("SQL missing NOT BETWEEN: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "AND") {
+			t.Errorf("SQL missing AND: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("WhereNotBetween with invalid field", func(t *testing.T) {
+		_, err := soy.Modify().
+			Set("name", "new_name").
+			WhereNotBetween("nonexistent", "min", "max").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+}
+
 func TestUpdate_DialectCapabilities(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")

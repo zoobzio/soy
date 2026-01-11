@@ -358,3 +358,96 @@ func TestSoy_Contains(t *testing.T) {
 		})
 	}
 }
+
+func TestSoy_InsertFull(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[soyTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("InsertFull returns builder", func(t *testing.T) {
+		insert := soy.InsertFull()
+		if insert == nil {
+			t.Fatal("InsertFull() returned nil")
+		}
+
+		if insert.instance != soy.instance {
+			t.Error("InsertFull() instance mismatch")
+		}
+	})
+
+	t.Run("InsertFull renders correctly", func(t *testing.T) {
+		result, err := soy.InsertFull().Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		if result.SQL == "" {
+			t.Error("Render() returned empty SQL")
+		}
+	})
+}
+
+func TestSoy_InternalAccessors(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[soyTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("atomScanner returns scanner", func(t *testing.T) {
+		scanner := soy.atomScanner()
+		if scanner == nil {
+			t.Fatal("atomScanner() returned nil")
+		}
+	})
+
+	t.Run("getInstance returns ASTQL instance", func(t *testing.T) {
+		instance := soy.getInstance()
+		if instance == nil {
+			t.Fatal("getInstance() returned nil")
+		}
+
+		// Verify it's the same instance
+		if instance != soy.instance {
+			t.Error("getInstance() returned different instance")
+		}
+	})
+
+	t.Run("execer returns db", func(t *testing.T) {
+		execer := soy.execer()
+		if execer != db {
+			t.Error("execer() returned different db")
+		}
+	})
+
+	t.Run("getTableName returns table name", func(t *testing.T) {
+		tableName := soy.getTableName()
+		if tableName != "users" {
+			t.Errorf("getTableName() = %q, want %q", tableName, "users")
+		}
+	})
+
+	t.Run("renderer returns renderer", func(t *testing.T) {
+		renderer := soy.renderer()
+		if renderer == nil {
+			t.Fatal("renderer() returned nil")
+		}
+	})
+
+	t.Run("getMetadata returns metadata", func(t *testing.T) {
+		metadata := soy.getMetadata()
+		if len(metadata.Fields) == 0 {
+			t.Error("getMetadata() returned empty fields")
+		}
+	})
+}

@@ -429,14 +429,15 @@ func assignValue(a *atom.Atom, plan *scanFieldPlan, dest any) {
 			a.Bytes[plan.fieldName] = *v
 		}
 
-	// Nullable types
+	// Nullable types - must copy values to avoid aliasing reused sql.Null* structs
 	case atom.TableStringPtrs:
 		if v, ok := dest.(*sql.NullString); ok {
 			if a.StringPtrs == nil {
 				a.StringPtrs = make(map[string]*string)
 			}
 			if v.Valid {
-				a.StringPtrs[plan.fieldName] = &v.String
+				val := v.String
+				a.StringPtrs[plan.fieldName] = &val
 			} else {
 				a.StringPtrs[plan.fieldName] = nil
 			}
@@ -447,7 +448,8 @@ func assignValue(a *atom.Atom, plan *scanFieldPlan, dest any) {
 				a.IntPtrs = make(map[string]*int64)
 			}
 			if v.Valid {
-				a.IntPtrs[plan.fieldName] = &v.Int64
+				val := v.Int64
+				a.IntPtrs[plan.fieldName] = &val
 			} else {
 				a.IntPtrs[plan.fieldName] = nil
 			}
@@ -470,7 +472,8 @@ func assignValue(a *atom.Atom, plan *scanFieldPlan, dest any) {
 				a.FloatPtrs = make(map[string]*float64)
 			}
 			if v.Valid {
-				a.FloatPtrs[plan.fieldName] = &v.Float64
+				val := v.Float64
+				a.FloatPtrs[plan.fieldName] = &val
 			} else {
 				a.FloatPtrs[plan.fieldName] = nil
 			}
@@ -481,7 +484,8 @@ func assignValue(a *atom.Atom, plan *scanFieldPlan, dest any) {
 				a.BoolPtrs = make(map[string]*bool)
 			}
 			if v.Valid {
-				a.BoolPtrs[plan.fieldName] = &v.Bool
+				val := v.Bool
+				a.BoolPtrs[plan.fieldName] = &val
 			} else {
 				a.BoolPtrs[plan.fieldName] = nil
 			}
@@ -492,7 +496,8 @@ func assignValue(a *atom.Atom, plan *scanFieldPlan, dest any) {
 				a.TimePtrs = make(map[string]*time.Time)
 			}
 			if v.Valid {
-				a.TimePtrs[plan.fieldName] = &v.Time
+				val := v.Time
+				a.TimePtrs[plan.fieldName] = &val
 			} else {
 				a.TimePtrs[plan.fieldName] = nil
 			}
@@ -503,7 +508,9 @@ func assignValue(a *atom.Atom, plan *scanFieldPlan, dest any) {
 				a.BytePtrs = make(map[string]*[]byte)
 			}
 			if v != nil && *v != nil {
-				a.BytePtrs[plan.fieldName] = v
+				val := make([]byte, len(*v))
+				copy(val, *v)
+				a.BytePtrs[plan.fieldName] = &val
 			} else {
 				a.BytePtrs[plan.fieldName] = nil
 			}
