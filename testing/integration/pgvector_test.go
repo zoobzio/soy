@@ -215,4 +215,62 @@ func TestPgvector_Integration(t *testing.T) {
 			t.Errorf("expected first (highest inner product) to be 'large', got '%s'", vectors[0].Name)
 		}
 	})
+
+	t.Run("SelectExpr with distance score", func(t *testing.T) {
+		truncateVectorTestTable(t, db)
+
+		// Insert test vectors
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+			('origin', '[0,0,0]'),
+			('unit_x', '[1,0,0]'),
+			('far', '[10,10,10]')
+		`)
+		if err != nil {
+			t.Fatalf("failed to insert vectors: %v", err)
+		}
+
+		// Create a soy instance with TestVectorWithDistance which includes the distance field
+		cWithDistance, err := soy.New[TestVectorWithDistance](db, "test_vectors", astqlpg.New())
+		if err != nil {
+			t.Fatalf("New[TestVectorWithDistance]() failed: %v", err)
+		}
+
+		// Query with SelectExpr to get distance scores
+		// Note: SelectExpr adds to SELECT clause, use Fields() to include other columns
+		params := map[string]any{"query_vec": "[0,0,0]"}
+		vectors, err := cWithDistance.Query().
+			Fields("id", "name", "embedding").
+			SelectExpr("embedding", "<->", "query_vec", "distance").
+			OrderByExpr("embedding", "<->", "query_vec", "ASC").
+			Limit(3).
+			Exec(ctx, params)
+		if err != nil {
+			t.Fatalf("Query().SelectExpr().Exec() failed: %v", err)
+		}
+		if len(vectors) != 3 {
+			t.Errorf("expected 3 vectors, got %d", len(vectors))
+		}
+
+		// Verify the distance values are present and ordered correctly
+		// origin should have distance 0, unit_x distance 1, far distance ~17.3
+		for i, v := range vectors {
+			t.Logf("vector %d: name=%s, distance=%f", i, v.Name, v.Distance)
+		}
+
+		// First result should be origin with distance 0
+		if vectors[0].Name != "origin" {
+			t.Errorf("expected first result to be 'origin', got '%s'", vectors[0].Name)
+		}
+		if vectors[0].Distance != 0 {
+			t.Errorf("expected origin distance to be 0, got %f", vectors[0].Distance)
+		}
+
+		// Second result should be unit_x with distance 1
+		if vectors[1].Name != "unit_x" {
+			t.Errorf("expected second result to be 'unit_x', got '%s'", vectors[1].Name)
+		}
+		if vectors[1].Distance != 1 {
+			t.Errorf("expected unit_x distance to be 1, got %f", vectors[1].Distance)
+		}
+	})
 }

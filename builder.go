@@ -736,6 +736,29 @@ func selectNullIfImpl(instance *astql.ASTQL, builder *astql.Builder, param1, par
 	return builder.SelectExpr(astql.As(astql.NullIf(p1, p2), alias)), nil
 }
 
+// --- Binary Expression Implementations ---
+
+// selectExprImpl adds a binary expression (field <op> param) AS alias to the SELECT clause.
+// Useful for vector distance calculations with pgvector.
+func selectExprImpl(instance *astql.ASTQL, builder *astql.Builder, field, operator, param, alias string) (*astql.Builder, error) {
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		return builder, err
+	}
+
+	f, err := instance.TryF(field)
+	if err != nil {
+		return builder, newFieldError(field, err)
+	}
+
+	p, err := instance.TryP(param)
+	if err != nil {
+		return builder, newParamError(param, err)
+	}
+
+	return builder.SelectBinaryExpr(f, astqlOp, p, alias), nil
+}
+
 // --- Aggregate Filter Expression Implementations ---
 
 // buildSimpleConditionImpl creates a simple condition (field op param) for FILTER clauses.

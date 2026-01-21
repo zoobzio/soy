@@ -6,7 +6,7 @@ toolchain go1.25.5
 
 require (
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/zoobzio/astql v1.0.3
+	github.com/zoobzio/astql v1.0.5
 	github.com/zoobzio/atom v1.0.0
 	github.com/zoobzio/capitan v1.0.0
 	github.com/zoobzio/dbml v1.0.0
