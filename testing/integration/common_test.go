@@ -45,6 +45,15 @@ type TestVectorWithPgvector struct {
 	Embedding string `db:"embedding" type:"vector(3)"` // 3-dimensional vector
 }
 
+// TestVectorWithDistance is a model for pgvector tests that includes a distance score.
+// Used with SelectExpr to retrieve computed distance values.
+type TestVectorWithDistance struct {
+	ID        int     `db:"id" type:"serial" constraints:"primarykey"`
+	Name      string  `db:"name" type:"text" constraints:"notnull"`
+	Embedding string  `db:"embedding" type:"vector(3)"` // 3-dimensional vector
+	Distance  float64 `db:"distance"`                   // computed distance from SelectExpr
+}
+
 func init() {
 	sentinel.Tag("db")
 	sentinel.Tag("type")
