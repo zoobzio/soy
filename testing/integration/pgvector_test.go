@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	astqlpg "github.com/zoobzio/astql/postgres"
@@ -213,6 +214,58 @@ func TestPgvector_Integration(t *testing.T) {
 		// small [1,1,1]: 1+1+1 = 3 (lowest, so -3 is highest with ASC)
 		if vectors[0].Name != "large" {
 			t.Errorf("expected first (highest inner product) to be 'large', got '%s'", vectors[0].Name)
+		}
+	})
+
+	t.Run("SelectExpr with distance score", func(t *testing.T) {
+		truncateVectorTestTable(t, db)
+
+		// Insert test vectors
+		_, err := db.Exec(`INSERT INTO test_vectors (name, embedding) VALUES
+			('origin', '[0,0,0]'),
+			('unit_x', '[1,0,0]'),
+			('far', '[10,10,10]')
+		`)
+		if err != nil {
+			t.Fatalf("failed to insert vectors: %v", err)
+		}
+
+		// Query with SelectExpr to get distance scores
+		// Note: SelectExpr adds the distance as an aliased column in the SELECT clause
+		params := map[string]any{"query_vec": "[0,0,0]"}
+		result := c.Query().
+			SelectExpr("embedding", "<->", "query_vec", "distance").
+			OrderByExpr("embedding", "<->", "query_vec", "ASC").
+			Limit(3).
+			MustRender()
+
+		// Verify the SQL contains both the SELECT expression and ORDER BY
+		if result.SQL == "" {
+			t.Error("expected non-empty SQL")
+		}
+
+		// The query should include the distance alias
+		if !strings.Contains(result.SQL, `"distance"`) {
+			t.Errorf("SQL missing distance alias: %s", result.SQL)
+		}
+
+		// The query should include the vector operator in SELECT
+		if !strings.Contains(result.SQL, "<->") {
+			t.Errorf("SQL missing vector operator: %s", result.SQL)
+		}
+
+		// Verify we can execute the query (results won't have the score in the struct,
+		// but the query should execute without error)
+		vectors, err := c.Query().
+			SelectExpr("embedding", "<->", "query_vec", "distance").
+			OrderByExpr("embedding", "<->", "query_vec", "ASC").
+			Limit(3).
+			Exec(ctx, params)
+		if err != nil {
+			t.Fatalf("Query().SelectExpr().OrderByExpr().Exec() failed: %v", err)
+		}
+		if len(vectors) != 3 {
+			t.Errorf("expected 3 vectors, got %d", len(vectors))
 		}
 	})
 }

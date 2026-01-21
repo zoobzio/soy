@@ -767,3 +767,135 @@ func TestValidateNulls(t *testing.T) {
 		}
 	}
 }
+
+// --- SelectExpr Tests ---
+
+func TestSelectExprImpl_ViaSelect(t *testing.T) {
+	c := setupBuilderTest(t)
+
+	t.Run("valid SelectExpr with cosine distance", func(t *testing.T) {
+		result, err := c.Select().
+			SelectExpr("email", "<=>", "query_vec", "score").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		if !strings.Contains(result.SQL, `"email"`) {
+			t.Errorf("SQL missing field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "<=>") {
+			t.Errorf("SQL missing operator: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":query_vec") {
+			t.Errorf("SQL missing param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"score"`) {
+			t.Errorf("SQL missing alias: %s", result.SQL)
+		}
+	})
+
+	t.Run("valid SelectExpr with L2 distance", func(t *testing.T) {
+		result, err := c.Select().
+			SelectExpr("name", "<->", "query_embedding", "distance").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "<->") {
+			t.Errorf("SQL missing L2 operator: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"distance"`) {
+			t.Errorf("SQL missing alias: %s", result.SQL)
+		}
+	})
+
+	t.Run("SelectExpr combined with OrderByExpr", func(t *testing.T) {
+		result, err := c.Select().
+			SelectExpr("email", "<=>", "query_vec", "score").
+			OrderByExpr("email", "<=>", "query_vec", "asc").
+			Limit(10).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		// Should have both SELECT expression and ORDER BY
+		if !strings.Contains(result.SQL, `"score"`) {
+			t.Errorf("SQL missing score alias: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "ORDER BY") {
+			t.Errorf("SQL missing ORDER BY: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "LIMIT") {
+			t.Errorf("SQL missing LIMIT: %s", result.SQL)
+		}
+	})
+
+	t.Run("invalid operator returns error", func(t *testing.T) {
+		_, err := c.Select().
+			SelectExpr("email", "INVALID", "param", "alias").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid operator")
+		}
+	})
+
+	t.Run("invalid field returns error", func(t *testing.T) {
+		_, err := c.Select().
+			SelectExpr("nonexistent", "<=>", "param", "alias").
+			Render()
+		if err == nil {
+			t.Error("Expected error for invalid field")
+		}
+	})
+}
+
+func TestSelectExprImpl_ViaQuery(t *testing.T) {
+	c := setupBuilderTest(t)
+
+	t.Run("valid SelectExpr via Query", func(t *testing.T) {
+		result, err := c.Query().
+			SelectExpr("email", "<=>", "query_vec", "score").
+			OrderByExpr("email", "<=>", "query_vec", "asc").
+			Limit(10).
+			Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		if !strings.Contains(result.SQL, `"score"`) {
+			t.Errorf("SQL missing score alias: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "<=>") {
+			t.Errorf("SQL missing operator: %s", result.SQL)
+		}
+	})
+
+	t.Run("SelectExpr with inner product", func(t *testing.T) {
+		result, err := c.Query().
+			SelectExpr("name", "<#>", "embedding", "similarity").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "<#>") {
+			t.Errorf("SQL missing inner product operator: %s", result.SQL)
+		}
+	})
+
+	t.Run("SelectExpr with L1 distance", func(t *testing.T) {
+		result, err := c.Query().
+			SelectExpr("name", "<+>", "embedding", "manhattan").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() error = %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "<+>") {
+			t.Errorf("SQL missing L1 operator: %s", result.SQL)
+		}
+	})
+}

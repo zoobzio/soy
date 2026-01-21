@@ -190,6 +190,21 @@ func (qb *Query[T]) OrderByExpr(field, operator, param, direction string) *Query
 	return qb
 }
 
+// SelectExpr adds a binary expression (field <op> param) AS alias to the SELECT clause.
+// Useful for retrieving vector distance scores alongside results with pgvector.
+//
+// Example:
+//
+//	.SelectExpr("embedding", "<=>", "query_vec", "score")
+//	// SELECT *, "embedding" <=> :query_vec AS "score" FROM ...
+func (qb *Query[T]) SelectExpr(field, operator, param, alias string) *Query[T] {
+	if qb.err != nil {
+		return qb
+	}
+	qb.builder, qb.err = selectExprImpl(qb.instance, qb.builder, field, operator, param, alias)
+	return qb
+}
+
 // Limit adds a LIMIT clause to restrict the number of rows returned.
 //
 // Example:
