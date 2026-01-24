@@ -102,10 +102,26 @@ jobs:
         go mod download
         cd testing && go mod download
 
-    - name: Run integration tests
+    - name: Run integration tests with coverage
       run: |
         cd testing
-        go test -v -race -timeout=10m ./integration/...
+        go test -v -race -timeout=10m -coverprofile=integration-coverage.out -covermode=atomic \
+          -coverpkg=github.com/zoobzio/soy ./integration/...
+
+    - name: Upload integration coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./testing/integration-coverage.out
+        flags: integration
+        name: soy-integration-coverage
+        fail_ci_if_error: false
+
+    - name: Upload integration coverage artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-coverage-${{ github.sha }}
+        path: testing/integration-coverage.out
+        retention-days: 7
 
   # Code quality and security
   quality:

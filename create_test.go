@@ -1,10 +1,12 @@
 package soy
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql"
 	"github.com/zoobzio/astql/mariadb"
 	"github.com/zoobzio/astql/mssql"
 	"github.com/zoobzio/astql/postgres"
@@ -453,6 +455,129 @@ func TestCreate_ErrorPaths(t *testing.T) {
 		}
 		if !strings.Contains(result.SQL, `"age"`) {
 			t.Error("SQL missing age field")
+		}
+	})
+}
+
+func TestCreate_BatchMultiRowInsert(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[createTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("builds multi-row INSERT with indexed params", func(t *testing.T) {
+		// Simulate what execBatch does internally: build multi-row INSERT
+		instance := s.getInstance()
+		metadata := s.getMetadata()
+
+		tableName := s.getTableName()
+		table, err := instance.TryT(tableName)
+		if err != nil {
+			t.Fatalf("TryT() failed: %v", err)
+		}
+
+		builder := astql.Insert(table)
+
+		// Add 3 rows with indexed params (simulating 3 records)
+		for i := 0; i < 3; i++ {
+			values := instance.ValueMap()
+			for _, field := range metadata.Fields {
+				dbCol := field.Tags["db"]
+				if dbCol == "" || dbCol == "-" {
+					continue
+				}
+				constraints := field.Tags["constraints"]
+				if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
+					continue
+				}
+
+				indexedParam := fmt.Sprintf("%s_%d", dbCol, i)
+				f, _ := instance.TryF(dbCol)
+				p, _ := instance.TryP(indexedParam)
+				values[f] = p
+			}
+			builder = builder.Values(values)
+		}
+
+		result, err := builder.Render(s.renderer())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		// Verify SQL has INSERT INTO
+		if !strings.Contains(result.SQL, "INSERT INTO") {
+			t.Errorf("SQL missing INSERT INTO: %s", result.SQL)
+		}
+
+		// Verify SQL has multiple VALUES tuples (3 sets of parentheses after VALUES)
+		valuesIdx := strings.Index(result.SQL, "VALUES")
+		if valuesIdx == -1 {
+			t.Fatalf("SQL missing VALUES: %s", result.SQL)
+		}
+		valuesPart := result.SQL[valuesIdx:]
+		tupleCount := strings.Count(valuesPart, "(")
+		if tupleCount != 3 {
+			t.Errorf("expected 3 value tuples, got %d in: %s", tupleCount, valuesPart)
+		}
+
+		// Verify indexed params are present
+		if !strings.Contains(result.SQL, "email_0") {
+			t.Errorf("SQL missing email_0 param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "email_1") {
+			t.Errorf("SQL missing email_1 param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "email_2") {
+			t.Errorf("SQL missing email_2 param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "name_0") {
+			t.Errorf("SQL missing name_0 param: %s", result.SQL)
+		}
+
+		t.Logf("Multi-row INSERT SQL: %s", result.SQL)
+	})
+
+	t.Run("single record produces single VALUES tuple", func(t *testing.T) {
+		instance := s.getInstance()
+		metadata := s.getMetadata()
+
+		table, _ := instance.TryT(s.getTableName())
+		builder := astql.Insert(table)
+
+		values := instance.ValueMap()
+		for _, field := range metadata.Fields {
+			dbCol := field.Tags["db"]
+			if dbCol == "" || dbCol == "-" {
+				continue
+			}
+			constraints := field.Tags["constraints"]
+			if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
+				continue
+			}
+			f, _ := instance.TryF(dbCol)
+			p, _ := instance.TryP(dbCol + "_0")
+			values[f] = p
+		}
+		builder = builder.Values(values)
+
+		result, err := builder.Render(s.renderer())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		valuesIdx := strings.Index(result.SQL, "VALUES")
+		if valuesIdx == -1 {
+			t.Fatalf("SQL missing VALUES: %s", result.SQL)
+		}
+		valuesPart := result.SQL[valuesIdx:]
+		tupleCount := strings.Count(valuesPart, "(")
+		if tupleCount != 1 {
+			t.Errorf("expected 1 value tuple, got %d in: %s", tupleCount, valuesPart)
 		}
 	})
 }

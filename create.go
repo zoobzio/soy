@@ -3,6 +3,7 @@ package soy
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -149,24 +150,73 @@ func (cb *Create[T]) ExecBatchTx(ctx context.Context, tx *sqlx.Tx, records []*T)
 }
 
 // execBatch is the internal batch execution method.
+// It builds a single multi-row INSERT query and executes it once.
 func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, records []*T) (int64, error) {
-	// Check for  errors first
 	if cb.err != nil {
-		return 0, fmt.Errorf("create  has errors: %w", cb.err)
+		return 0, fmt.Errorf("create builder has errors: %w", cb.err)
 	}
 
 	if len(records) == 0 {
 		return 0, nil
 	}
 
-	// Render the query once
-	result, err := cb.builder.Render(cb.soy.renderer())
+	instance := cb.soy.getInstance()
+	metadata := cb.soy.getMetadata()
+	tableName := cb.soy.getTableName()
+
+	t, err := instance.TryT(tableName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to render INSERT query: %w", err)
+		return 0, fmt.Errorf("invalid table %q: %w", tableName, err)
+	}
+
+	// Build multi-row INSERT with indexed params
+	builder := astql.Insert(t)
+	combinedParams := make(map[string]any)
+
+	for i, record := range records {
+		values := instance.ValueMap()
+		rv := reflect.ValueOf(record).Elem()
+
+		for _, field := range metadata.Fields {
+			dbCol := field.Tags["db"]
+			if dbCol == "" || dbCol == "-" {
+				continue
+			}
+			// Skip primary key columns (auto-generated)
+			constraints := field.Tags["constraints"]
+			if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
+				continue
+			}
+
+			// Create indexed param name
+			indexedParam := fmt.Sprintf("%s_%d", dbCol, i)
+
+			f, fErr := instance.TryF(dbCol)
+			if fErr != nil {
+				return 0, fmt.Errorf("invalid field %q: %w", dbCol, fErr)
+			}
+			p, pErr := instance.TryP(indexedParam)
+			if pErr != nil {
+				return 0, fmt.Errorf("invalid param %q: %w", indexedParam, pErr)
+			}
+
+			values[f] = p
+
+			// Extract value from struct field
+			fieldVal := rv.FieldByName(field.Name)
+			combinedParams[indexedParam] = fieldVal.Interface()
+		}
+
+		builder = builder.Values(values)
+	}
+
+	// Render the multi-row query
+	result, err := builder.Render(cb.soy.renderer())
+	if err != nil {
+		return 0, fmt.Errorf("failed to render batch INSERT query: %w", err)
 	}
 
 	// Emit query started event
-	tableName := cb.soy.getTableName()
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
 		OperationKey.Field("INSERT_BATCH"),
@@ -175,32 +225,29 @@ func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, reco
 
 	startTime := time.Now()
 
-	var count int64
-	for _, record := range records {
-		// Execute each insert
-		res, err := sqlx.NamedExecContext(ctx, execer, result.SQL, record)
-		if err != nil {
-			durationMs := time.Since(startTime).Milliseconds()
-			capitan.Error(ctx, QueryFailed,
-				TableKey.Field(tableName),
-				OperationKey.Field("INSERT_BATCH"),
-				DurationMsKey.Field(durationMs),
-				ErrorKey.Field(err.Error()),
-			)
-			return count, fmt.Errorf("batch INSERT failed after %d records: %w", count, err)
-		}
-		affected, err := res.RowsAffected()
-		if err != nil {
-			durationMs := time.Since(startTime).Milliseconds()
-			capitan.Error(ctx, QueryFailed,
-				TableKey.Field(tableName),
-				OperationKey.Field("INSERT_BATCH"),
-				DurationMsKey.Field(durationMs),
-				ErrorKey.Field(err.Error()),
-			)
-			return count, fmt.Errorf("failed to get rows affected: %w", err)
-		}
-		count += affected
+	// Execute once with combined params
+	res, err := sqlx.NamedExecContext(ctx, execer, result.SQL, combinedParams)
+	if err != nil {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("INSERT_BATCH"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field(err.Error()),
+		)
+		return 0, fmt.Errorf("batch INSERT failed: %w", err)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		durationMs := time.Since(startTime).Milliseconds()
+		capitan.Error(ctx, QueryFailed,
+			TableKey.Field(tableName),
+			OperationKey.Field("INSERT_BATCH"),
+			DurationMsKey.Field(durationMs),
+			ErrorKey.Field(err.Error()),
+		)
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
 	}
 
 	// Emit query completed event
