@@ -40,13 +40,13 @@ jobs:
         # Unit test coverage
         echo "=== Testing unit tests ==="
         go test -v -race -coverprofile=coverage-unit.out -covermode=atomic \
-          -coverpkg=github.com/zoobzio/soy $(go list ./...)
+          -coverpkg=github.com/zoobzio/soy/... $(go list ./...)
 
         # Integration test coverage
         echo "=== Testing integration tests ==="
         cd testing
         go test -v -race -timeout=10m -coverprofile=coverage-integration.out -covermode=atomic \
-          -coverpkg=github.com/zoobzio/soy ./integration/...
+          -coverpkg=github.com/zoobzio/soy/... ./integration/...
         cd ..
 
         # Merge coverage files

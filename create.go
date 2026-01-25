@@ -160,6 +160,11 @@ func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, reco
 		return 0, nil
 	}
 
+	// Batch insert does not support ON CONFLICT clauses
+	if cb.hasConflict {
+		return 0, fmt.Errorf("batch insert does not support ON CONFLICT clauses; use individual Exec calls for upsert operations")
+	}
+
 	instance := cb.soy.getInstance()
 	metadata := cb.soy.getMetadata()
 	tableName := cb.soy.getTableName()
@@ -174,8 +179,17 @@ func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, reco
 	combinedParams := make(map[string]any)
 
 	for i, record := range records {
+		// Guard against nil records
+		if record == nil {
+			return 0, fmt.Errorf("nil record at index %d", i)
+		}
+		rv := reflect.ValueOf(record)
+		if !rv.IsValid() || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+			return 0, fmt.Errorf("invalid record at index %d", i)
+		}
+		rv = rv.Elem()
+
 		values := instance.ValueMap()
-		rv := reflect.ValueOf(record).Elem()
 
 		for _, field := range metadata.Fields {
 			dbCol := field.Tags["db"]
@@ -607,7 +621,9 @@ type Conflict[T any] struct {
 //	    DoNothing().
 //	    Exec(ctx, &user)
 func (cfb *Conflict[T]) DoNothing() *Create[T] {
-	cfb.create.builder = cfb.astqlConflict.DoNothing()
+	if cfb.astqlConflict != nil {
+		cfb.create.builder = cfb.astqlConflict.DoNothing()
+	}
 	return cfb.create
 }
 
@@ -622,7 +638,10 @@ func (cfb *Conflict[T]) DoNothing() *Create[T] {
 //	    Set("name", "updated_name").
 //	    Exec(ctx, &user)
 func (cfb *Conflict[T]) DoUpdate() *ConflictUpdate[T] {
-	astqlUpdate := cfb.astqlConflict.DoUpdate()
+	var astqlUpdate *astql.UpdateBuilder
+	if cfb.astqlConflict != nil {
+		astqlUpdate = cfb.astqlConflict.DoUpdate()
+	}
 
 	return &ConflictUpdate[T]{
 		create:      cfb.create,
