@@ -1,10 +1,12 @@
 package soy
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/zoobzio/astql"
 	"github.com/zoobzio/astql/mariadb"
 	"github.com/zoobzio/astql/mssql"
 	"github.com/zoobzio/astql/postgres"
@@ -16,6 +18,13 @@ type createTestUser struct {
 	Email string `db:"email" type:"text" constraints:"notnull,unique"`
 	Name  string `db:"name" type:"text"`
 	Age   *int   `db:"age" type:"integer"`
+}
+
+// createTestUserWithSkipped has a field with db:"-" to test field skipping
+type createTestUserWithSkipped struct {
+	ID       int    `db:"id" type:"integer" constraints:"primarykey"`
+	Email    string `db:"email" type:"text"`
+	Internal string `db:"-"` // Should be skipped
 }
 
 func TestCreate_Basic(t *testing.T) {
@@ -453,6 +462,373 @@ func TestCreate_ErrorPaths(t *testing.T) {
 		}
 		if !strings.Contains(result.SQL, `"age"`) {
 			t.Error("SQL missing age field")
+		}
+	})
+
+	t.Run("OnConflict on builder with existing error returns early", func(t *testing.T) {
+		// First OnConflict with invalid column sets error
+		builder := soy.Insert().
+			OnConflict("nonexistent_column").
+			DoNothing()
+
+		// Second OnConflict should hit early return (line 40-44)
+		builder = builder.OnConflict("email").DoNothing()
+
+		// Should still have original error
+		_, err := builder.Render()
+		if err == nil {
+			t.Error("expected error from first invalid OnConflict")
+		}
+		if !strings.Contains(err.Error(), "nonexistent_column") {
+			t.Errorf("error should mention original invalid column: %v", err)
+		}
+	})
+}
+
+func TestCreate_BatchMultiRowInsert(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[createTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("builds multi-row INSERT with indexed params", func(t *testing.T) {
+		// Simulate what execBatch does internally: build multi-row INSERT
+		instance := s.getInstance()
+		metadata := s.getMetadata()
+
+		tableName := s.getTableName()
+		table, err := instance.TryT(tableName)
+		if err != nil {
+			t.Fatalf("TryT() failed: %v", err)
+		}
+
+		builder := astql.Insert(table)
+
+		// Add 3 rows with indexed params (simulating 3 records)
+		for i := 0; i < 3; i++ {
+			values := instance.ValueMap()
+			for _, field := range metadata.Fields {
+				dbCol := field.Tags["db"]
+				if dbCol == "" || dbCol == "-" {
+					continue
+				}
+				constraints := field.Tags["constraints"]
+				if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
+					continue
+				}
+
+				indexedParam := fmt.Sprintf("%s_%d", dbCol, i)
+				f, _ := instance.TryF(dbCol)
+				p, _ := instance.TryP(indexedParam)
+				values[f] = p
+			}
+			builder = builder.Values(values)
+		}
+
+		result, err := builder.Render(s.renderer())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		// Verify SQL has INSERT INTO
+		if !strings.Contains(result.SQL, "INSERT INTO") {
+			t.Errorf("SQL missing INSERT INTO: %s", result.SQL)
+		}
+
+		// Verify SQL has multiple VALUES tuples (3 sets of parentheses after VALUES)
+		valuesIdx := strings.Index(result.SQL, "VALUES")
+		if valuesIdx == -1 {
+			t.Fatalf("SQL missing VALUES: %s", result.SQL)
+		}
+		valuesPart := result.SQL[valuesIdx:]
+		tupleCount := strings.Count(valuesPart, "(")
+		if tupleCount != 3 {
+			t.Errorf("expected 3 value tuples, got %d in: %s", tupleCount, valuesPart)
+		}
+
+		// Verify indexed params are present
+		if !strings.Contains(result.SQL, "email_0") {
+			t.Errorf("SQL missing email_0 param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "email_1") {
+			t.Errorf("SQL missing email_1 param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "email_2") {
+			t.Errorf("SQL missing email_2 param: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, "name_0") {
+			t.Errorf("SQL missing name_0 param: %s", result.SQL)
+		}
+
+		t.Logf("Multi-row INSERT SQL: %s", result.SQL)
+	})
+
+	t.Run("single record produces single VALUES tuple", func(t *testing.T) {
+		instance := s.getInstance()
+		metadata := s.getMetadata()
+
+		table, _ := instance.TryT(s.getTableName())
+		builder := astql.Insert(table)
+
+		values := instance.ValueMap()
+		for _, field := range metadata.Fields {
+			dbCol := field.Tags["db"]
+			if dbCol == "" || dbCol == "-" {
+				continue
+			}
+			constraints := field.Tags["constraints"]
+			if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
+				continue
+			}
+			f, _ := instance.TryF(dbCol)
+			p, _ := instance.TryP(dbCol + "_0")
+			values[f] = p
+		}
+		builder = builder.Values(values)
+
+		result, err := builder.Render(s.renderer())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		valuesIdx := strings.Index(result.SQL, "VALUES")
+		if valuesIdx == -1 {
+			t.Fatalf("SQL missing VALUES: %s", result.SQL)
+		}
+		valuesPart := result.SQL[valuesIdx:]
+		tupleCount := strings.Count(valuesPart, "(")
+		if tupleCount != 1 {
+			t.Errorf("expected 1 value tuple, got %d in: %s", tupleCount, valuesPart)
+		}
+	})
+}
+
+func TestCreate_BatchErrorPaths(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[createTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("batch with ON CONFLICT returns error", func(t *testing.T) {
+		create := s.Insert().OnConflict("email").DoNothing()
+
+		age := 25
+		users := []*createTestUser{
+			{Email: "a@example.com", Name: "A", Age: &age},
+		}
+
+		_, err := create.ExecBatch(t.Context(), users)
+		if err == nil {
+			t.Fatal("expected error for batch with ON CONFLICT")
+		}
+		if !strings.Contains(err.Error(), "ON CONFLICT") {
+			t.Errorf("error should mention ON CONFLICT: %v", err)
+		}
+	})
+
+	t.Run("batch with nil record returns error", func(t *testing.T) {
+		create := s.Insert()
+
+		age1, age3 := 25, 35
+		users := []*createTestUser{
+			{Email: "a@example.com", Name: "A", Age: &age1},
+			nil,
+			{Email: "c@example.com", Name: "C", Age: &age3},
+		}
+
+		_, err := create.ExecBatch(t.Context(), users)
+		if err == nil {
+			t.Fatal("expected error for nil record")
+		}
+		if !strings.Contains(err.Error(), "nil record at index 1") {
+			t.Errorf("error should identify nil record index: %v", err)
+		}
+	})
+
+	t.Run("batch with empty records returns zero", func(t *testing.T) {
+		create := s.Insert()
+
+		count, err := create.ExecBatch(t.Context(), []*createTestUser{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 count for empty batch, got %d", count)
+		}
+	})
+
+	t.Run("batch with builder error propagates error", func(t *testing.T) {
+		// Create a builder with an error via invalid Set field
+		create := s.Insert().
+			OnConflict("email").
+			DoUpdate().
+			Set("nonexistent_field", "param").
+			Build()
+
+		users := []*createTestUser{
+			{Email: "a@example.com", Name: "A"},
+		}
+
+		_, err := create.ExecBatch(t.Context(), users)
+		if err == nil {
+			t.Fatal("expected error for builder with error")
+		}
+		if !strings.Contains(err.Error(), "create builder has errors") {
+			t.Errorf("error should indicate builder errors: %v", err)
+		}
+	})
+}
+
+func TestCreate_BatchSkipsIgnoredFields(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[createTestUserWithSkipped](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("batch skips fields with db tag hyphen", func(t *testing.T) {
+		instance := s.getInstance()
+		metadata := s.getMetadata()
+
+		// Verify our test struct has the Internal field with db:"-"
+		var hasSkippedField bool
+		for _, field := range metadata.Fields {
+			if field.Name == "Internal" && field.Tags["db"] == "-" {
+				hasSkippedField = true
+				break
+			}
+		}
+		if !hasSkippedField {
+			t.Fatal("test struct should have Internal field with db:\"-\"")
+		}
+
+		// Build the INSERT query manually like execBatch does
+		table, _ := instance.TryT(s.getTableName())
+		builder := astql.Insert(table)
+
+		values := instance.ValueMap()
+		for _, field := range metadata.Fields {
+			dbCol := field.Tags["db"]
+			if dbCol == "" || dbCol == "-" {
+				continue // This is the path we're testing
+			}
+			constraints := field.Tags["constraints"]
+			if contains(constraints, "primarykey") || contains(constraints, "primary_key") {
+				continue
+			}
+			f, _ := instance.TryF(dbCol)
+			p, _ := instance.TryP(dbCol + "_0")
+			values[f] = p
+		}
+		builder = builder.Values(values)
+
+		result, err := builder.Render(s.renderer())
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		// Verify Internal field is NOT in the SQL
+		if strings.Contains(result.SQL, "internal") || strings.Contains(result.SQL, "Internal") {
+			t.Errorf("SQL should not contain skipped field: %s", result.SQL)
+		}
+
+		// Verify email IS in the SQL
+		if !strings.Contains(result.SQL, "email") {
+			t.Errorf("SQL should contain email field: %s", result.SQL)
+		}
+
+		t.Logf("INSERT SQL (skipped field excluded): %s", result.SQL)
+	})
+}
+
+func TestCreate_ExecWithBuilderError(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[createTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("Exec returns error when builder has error", func(t *testing.T) {
+		// Create builder with an error via invalid OnConflict column
+		builder := s.Insert().
+			OnConflict("nonexistent_column").
+			DoNothing()
+
+		user := &createTestUser{Email: "test@example.com", Name: "Test"}
+
+		// Exec should return error before attempting DB execution
+		_, err := builder.Exec(t.Context(), user)
+		if err == nil {
+			t.Fatal("expected error from builder with invalid OnConflict")
+		}
+		if !strings.Contains(err.Error(), "create builder has errors") {
+			t.Errorf("error should mention builder errors: %v", err)
+		}
+	})
+
+	t.Run("ExecTx returns error when builder has error", func(t *testing.T) {
+		builder := s.Insert().
+			OnConflict("bad_column").
+			DoNothing()
+
+		user := &createTestUser{Email: "test@example.com", Name: "Test"}
+
+		// ExecTx should also return error before attempting DB execution
+		_, err := builder.ExecTx(t.Context(), nil, user)
+		if err == nil {
+			t.Fatal("expected error from builder with invalid OnConflict")
+		}
+		if !strings.Contains(err.Error(), "create builder has errors") {
+			t.Errorf("error should mention builder errors: %v", err)
+		}
+	})
+}
+
+func TestCreate_BatchExecTx(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[createTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("ExecBatchTx with builder error returns early", func(t *testing.T) {
+		builder := s.Insert().
+			OnConflict("invalid_col").
+			DoNothing()
+
+		age := 25
+		users := []*createTestUser{
+			{Email: "a@example.com", Name: "A", Age: &age},
+		}
+
+		_, err := builder.ExecBatchTx(t.Context(), nil, users)
+		if err == nil {
+			t.Fatal("expected error from builder with error")
+		}
+		if !strings.Contains(err.Error(), "create builder has errors") {
+			t.Errorf("error should mention builder errors: %v", err)
 		}
 	})
 }

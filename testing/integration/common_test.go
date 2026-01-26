@@ -24,6 +24,7 @@ type TestUser struct {
 	Name      string     `db:"name" type:"text" constraints:"notnull"`
 	Age       *int       `db:"age" type:"integer"`
 	CreatedAt *time.Time `db:"created_at" type:"timestamptz" default:"now()"`
+	Internal  string     `db:"-"` // Skipped field for coverage of db:"-" handling
 }
 
 // TestUserExtended is a model with additional types for type coverage tests.
