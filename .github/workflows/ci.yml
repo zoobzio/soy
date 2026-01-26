@@ -108,14 +108,6 @@ jobs:
         go test -v -race -timeout=10m -coverprofile=integration-coverage.out -covermode=atomic \
           -coverpkg=github.com/zoobzio/soy ./integration/...
 
-    - name: Upload integration coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        files: ./testing/integration-coverage.out
-        flags: integration
-        name: soy-integration-coverage
-        fail_ci_if_error: false
-
     - name: Upload integration coverage artifact
       uses: actions/upload-artifact@v4
       with:
@@ -156,13 +148,6 @@ jobs:
 
     - name: Generate coverage report
       run: make coverage
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
