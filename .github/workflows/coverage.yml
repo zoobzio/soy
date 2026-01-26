@@ -80,6 +80,12 @@ jobs:
         # Convert to XML
         gocover-cobertura < coverage-core.out > coverage-all.xml
 
+    - name: Clean up intermediate coverage files
+      run: |
+        # Remove intermediate files so Codecov only sees the merged file
+        rm -f coverage-unit.out testing/coverage-integration.out
+        rm -f coverage-core.xml coverage-all.xml coverage-all.out
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
@@ -88,6 +94,7 @@ jobs:
         name: soy-coverage
         fail_ci_if_error: false
         verbose: true
+        disable_search: true
 
     - name: Generate coverage badge
       run: |
