@@ -257,7 +257,9 @@ func (cb *Compound[T]) exec(ctx context.Context, execer sqlx.ExtContext, params 
 		return nil, fmt.Errorf("failed to render compound query: %w", err)
 	}
 
-	return execMultipleRows[T](ctx, execer, result.SQL, params, cb.soy.getTableName(), "COMPOUND")
+	return execMultipleRows[T](ctx, execer, result.SQL, params, cb.soy.getTableName(), "COMPOUND", func(ctx context.Context, result *T) error {
+		return cb.soy.callOnScan(ctx, result)
+	})
 }
 
 // Instance returns the underlying ASTQL instance.

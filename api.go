@@ -75,6 +75,7 @@
 package soy
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -118,6 +119,8 @@ type Soy[T any] struct {
 	instance    *astql.ASTQL
 	sqlRenderer astql.Renderer
 	scanner     *scanner.Scanner
+	onScan      func(ctx context.Context, result *T) error
+	onRecord    func(ctx context.Context, record *T) error
 }
 
 // New creates a new Soy instance for type T with the given database connection, table name, and SQL renderer.
@@ -222,6 +225,42 @@ func (c *Soy[T]) getMetadata() sentinel.Metadata {
 // getInstance returns the ASTQL instance.
 func (c *Soy[T]) getInstance() *astql.ASTQL {
 	return c.instance
+}
+
+// OnScan registers a callback that fires after scanning a row into *T.
+// It is called in Query, Select, Update, and Create execution paths.
+func (c *Soy[T]) OnScan(fn func(ctx context.Context, result *T) error) {
+	c.onScan = fn
+}
+
+// OnRecord registers a callback that fires before writing a *T.
+// It is called in Create execution paths before the INSERT is executed.
+func (c *Soy[T]) OnRecord(fn func(ctx context.Context, record *T) error) {
+	c.onRecord = fn
+}
+
+// callOnScan invokes the onScan callback if registered.
+func (c *Soy[T]) callOnScan(ctx context.Context, result any) error {
+	if c.onScan == nil {
+		return nil
+	}
+	r, ok := result.(*T)
+	if !ok {
+		return fmt.Errorf("callOnScan: expected *%T, got %T", new(T), result)
+	}
+	return c.onScan(ctx, r)
+}
+
+// callOnRecord invokes the onRecord callback if registered.
+func (c *Soy[T]) callOnRecord(ctx context.Context, record any) error {
+	if c.onRecord == nil {
+		return nil
+	}
+	r, ok := record.(*T)
+	if !ok {
+		return fmt.Errorf("callOnRecord: expected *%T, got %T", new(T), record)
+	}
+	return c.onRecord(ctx, r)
 }
 
 // Instance returns the underlying ASTQL instance for advanced query building.

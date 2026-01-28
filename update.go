@@ -399,6 +399,10 @@ func (ub *Update[T]) execWithReturning(ctx context.Context, execer sqlx.ExtConte
 		return nil, fmt.Errorf("failed to scan UPDATE result: %w", err)
 	}
 
+	if err := ub.soy.callOnScan(ctx, &updated); err != nil {
+		return nil, fmt.Errorf("onScan callback failed: %w", err)
+	}
+
 	// Ensure no additional rows (UPDATE should affect exactly one record)
 	if rows.Next() {
 		durationMs := time.Since(startTime).Milliseconds()
@@ -539,6 +543,10 @@ func (ub *Update[T]) execThenSelect(ctx context.Context, execer sqlx.ExtContext,
 			ErrorKey.Field(err.Error()),
 		)
 		return nil, fmt.Errorf("failed to scan fallback SELECT result: %w", err)
+	}
+
+	if err := ub.soy.callOnScan(ctx, &updated); err != nil {
+		return nil, fmt.Errorf("onScan callback failed: %w", err)
 	}
 
 	// Emit query completed event

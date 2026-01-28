@@ -1072,7 +1072,9 @@ func (qb *Query[T]) exec(ctx context.Context, execer sqlx.ExtContext, params map
 		return nil, fmt.Errorf("failed to render SELECT query: %w", err)
 	}
 
-	return execMultipleRows[T](ctx, execer, result.SQL, params, qb.soy.getTableName(), "QUERY")
+	return execMultipleRows[T](ctx, execer, result.SQL, params, qb.soy.getTableName(), "QUERY", func(ctx context.Context, result *T) error {
+		return qb.soy.callOnScan(ctx, result)
+	})
 }
 
 // Render builds and renders the query to SQL with parameter placeholders.
