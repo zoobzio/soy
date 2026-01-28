@@ -1,6 +1,8 @@
 package soy
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -448,6 +450,114 @@ func TestSoy_InternalAccessors(t *testing.T) {
 		metadata := soy.getMetadata()
 		if len(metadata.Fields) == 0 {
 			t.Error("getMetadata() returned empty fields")
+		}
+	})
+}
+
+func TestSoy_OnScan(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[soyTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("nil by default", func(t *testing.T) {
+		if s.onScan != nil {
+			t.Error("onScan should be nil by default")
+		}
+		// callOnScan with nil callback should be a no-op
+		if err := s.callOnScan(context.Background(), &soyTestUser{}); err != nil {
+			t.Errorf("callOnScan with nil callback should not error, got: %v", err)
+		}
+	})
+
+	t.Run("registers and fires", func(t *testing.T) {
+		var called bool
+		s.OnScan(func(_ context.Context, result *soyTestUser) error {
+			called = true
+			result.Email = "modified@test.com"
+			return nil
+		})
+
+		user := &soyTestUser{Email: "original@test.com"}
+		if err := s.callOnScan(context.Background(), user); err != nil {
+			t.Fatalf("callOnScan error: %v", err)
+		}
+		if !called {
+			t.Error("onScan callback was not called")
+		}
+		if user.Email != "modified@test.com" {
+			t.Errorf("onScan did not modify result, got email=%q", user.Email)
+		}
+	})
+
+	t.Run("propagates errors", func(t *testing.T) {
+		s.OnScan(func(_ context.Context, _ *soyTestUser) error {
+			return errors.New("scan error")
+		})
+
+		err := s.callOnScan(context.Background(), &soyTestUser{})
+		if err == nil || err.Error() != "scan error" {
+			t.Errorf("expected scan error, got: %v", err)
+		}
+	})
+}
+
+func TestSoy_OnRecord(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	s, err := New[soyTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("nil by default", func(t *testing.T) {
+		if s.onRecord != nil {
+			t.Error("onRecord should be nil by default")
+		}
+		if err := s.callOnRecord(context.Background(), &soyTestUser{}); err != nil {
+			t.Errorf("callOnRecord with nil callback should not error, got: %v", err)
+		}
+	})
+
+	t.Run("registers and fires", func(t *testing.T) {
+		var called bool
+		s.OnRecord(func(_ context.Context, _ *soyTestUser) error {
+			called = true
+			return nil
+		})
+
+		if err := s.callOnRecord(context.Background(), &soyTestUser{}); err != nil {
+			t.Fatalf("callOnRecord error: %v", err)
+		}
+		if !called {
+			t.Error("onRecord callback was not called")
+		}
+	})
+
+	t.Run("propagates errors", func(t *testing.T) {
+		s.OnRecord(func(_ context.Context, record *soyTestUser) error {
+			if record.Email == "" {
+				return errors.New("email is required")
+			}
+			return nil
+		})
+
+		err := s.callOnRecord(context.Background(), &soyTestUser{})
+		if err == nil || err.Error() != "email is required" {
+			t.Errorf("expected validation error, got: %v", err)
+		}
+
+		err = s.callOnRecord(context.Background(), &soyTestUser{Email: "test@test.com"})
+		if err != nil {
+			t.Errorf("expected no error for valid record, got: %v", err)
 		}
 	})
 }

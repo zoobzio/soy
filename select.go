@@ -2,6 +2,7 @@ package soy
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -21,6 +22,8 @@ type soyExecutor interface {
 	atomScanner() *scanner.Scanner
 	getMetadata() sentinel.Metadata
 	getInstance() *astql.ASTQL
+	callOnScan(ctx context.Context, result any) error
+	callOnRecord(ctx context.Context, record any) error
 }
 
 // Select provides a focused API for building SELECT queries that return a single record.
@@ -1159,6 +1162,10 @@ func (sb *Select[T]) exec(ctx context.Context, execer sqlx.ExtContext, params ma
 			ErrorKey.Field(err.Error()),
 		)
 		return nil, newScanError("SELECT", err)
+	}
+
+	if err := sb.soy.callOnScan(ctx, &record); err != nil {
+		return nil, fmt.Errorf("onScan callback failed: %w", err)
 	}
 
 	// Ensure no additional rows

@@ -187,6 +187,10 @@ func (cb *Create[T]) execBatch(ctx context.Context, execer sqlx.ExtContext, reco
 		if !rv.IsValid() || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
 			return 0, fmt.Errorf("invalid record at index %d", i)
 		}
+		// Call onRecord before processing
+		if cbErr := cb.soy.callOnRecord(ctx, record); cbErr != nil {
+			return 0, fmt.Errorf("onRecord callback failed at index %d: %w", i, cbErr)
+		}
 		rv = rv.Elem()
 
 		values := instance.ValueMap()
@@ -311,6 +315,11 @@ func (cb *Create[T]) execWithUpsert(ctx context.Context, execer sqlx.ExtContext,
 
 	startTime := time.Now()
 
+	// Call onRecord before execution
+	if cbErr := cb.soy.callOnRecord(ctx, record); cbErr != nil {
+		return nil, fmt.Errorf("onRecord callback failed: %w", cbErr)
+	}
+
 	// Execute named query with RETURNING
 	rows, err := sqlx.NamedQueryContext(ctx, execer, result.SQL, record)
 	if err != nil {
@@ -347,6 +356,10 @@ func (cb *Create[T]) execWithUpsert(ctx context.Context, execer sqlx.ExtContext,
 			ErrorKey.Field(err.Error()),
 		)
 		return nil, fmt.Errorf("failed to scan INSERT result: %w", err)
+	}
+
+	if err := cb.soy.callOnScan(ctx, &inserted); err != nil {
+		return nil, fmt.Errorf("onScan callback failed: %w", err)
 	}
 
 	// Emit query completed event
@@ -401,6 +414,11 @@ func (cb *Create[T]) execUpdateThenInsert(ctx context.Context, execer sqlx.ExtCo
 			return nil, fmt.Errorf("invalid condition: %w", cErr)
 		}
 		updateBuilder = updateBuilder.Where(cond)
+	}
+
+	// Call onRecord before execution
+	if cbErr := cb.soy.callOnRecord(ctx, record); cbErr != nil {
+		return nil, fmt.Errorf("onRecord callback failed: %w", cbErr)
 	}
 
 	// Try UPDATE first
@@ -512,6 +530,10 @@ func (cb *Create[T]) execUpdateThenInsert(ctx context.Context, execer sqlx.ExtCo
 		return nil, fmt.Errorf("failed to scan INSERT result: %w", err)
 	}
 
+	if err := cb.soy.callOnScan(ctx, &inserted); err != nil {
+		return nil, fmt.Errorf("onScan callback failed: %w", err)
+	}
+
 	durationMs := time.Since(startTime).Milliseconds()
 	capitan.Info(ctx, QueryCompleted,
 		TableKey.Field(tableName),
@@ -568,6 +590,10 @@ func (cb *Create[T]) selectByConflictColumns(ctx context.Context, execer sqlx.Ex
 	var selected T
 	if err := rows.StructScan(&selected); err != nil {
 		return nil, fmt.Errorf("failed to scan SELECT result: %w", err)
+	}
+
+	if err := cb.soy.callOnScan(ctx, &selected); err != nil {
+		return nil, fmt.Errorf("onScan callback failed: %w", err)
 	}
 
 	return &selected, nil

@@ -2,6 +2,7 @@ package soy
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -19,6 +20,7 @@ func execMultipleRows[T any](
 	params map[string]any,
 	tableName string,
 	operation string,
+	onScan func(context.Context, *T) error,
 ) ([]*T, error) {
 	capitan.Debug(ctx, QueryStarted,
 		TableKey.Field(tableName),
@@ -53,6 +55,11 @@ func execMultipleRows[T any](
 				ErrorKey.Field(err.Error()),
 			)
 			return nil, newScanError(operation, err)
+		}
+		if onScan != nil {
+			if err := onScan(ctx, &record); err != nil {
+				return nil, fmt.Errorf("onScan callback failed: %w", err)
+			}
 		}
 		records = append(records, &record)
 	}
