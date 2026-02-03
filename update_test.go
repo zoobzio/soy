@@ -202,6 +202,103 @@ func TestUpdate_Basic(t *testing.T) {
 	})
 }
 
+func TestUpdate_SetExpr(t *testing.T) {
+	sentinel.Tag("db")
+	sentinel.Tag("type")
+	sentinel.Tag("constraints")
+
+	db := &sqlx.DB{}
+	soy, err := New[updateTestUser](db, "users", postgres.New())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	t.Run("SetExpr atomic increment", func(t *testing.T) {
+		result, err := soy.Modify().
+			SetExpr("age", "+", "increment").
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, "SET") {
+			t.Errorf("SQL missing SET: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"age"`) {
+			t.Errorf("SQL missing age field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, ":increment") {
+			t.Errorf("SQL missing increment param: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("SetExpr with regular Set", func(t *testing.T) {
+		result, err := soy.Modify().
+			Set("name", "new_name").
+			SetExpr("age", "+", "increment").
+			Where("id", "=", "user_id").
+			Render()
+		if err != nil {
+			t.Fatalf("Render() failed: %v", err)
+		}
+
+		if !strings.Contains(result.SQL, `"name"`) {
+			t.Errorf("SQL missing name field: %s", result.SQL)
+		}
+		if !strings.Contains(result.SQL, `"age"`) {
+			t.Errorf("SQL missing age field: %s", result.SQL)
+		}
+
+		t.Logf("SQL: %s", result.SQL)
+		t.Logf("Params: %v", result.RequiredParams)
+	})
+
+	t.Run("SetExpr invalid field", func(t *testing.T) {
+		_, err := soy.Modify().
+			SetExpr("nonexistent", "+", "increment").
+			Where("id", "=", "user_id").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid field")
+		}
+	})
+
+	t.Run("SetExpr invalid operator", func(t *testing.T) {
+		_, err := soy.Modify().
+			SetExpr("age", "INVALID", "increment").
+			Where("id", "=", "user_id").
+			Render()
+		if err == nil {
+			t.Error("expected error for invalid operator")
+		}
+	})
+
+	t.Run("SetExpr invalid param", func(t *testing.T) {
+		_, err := soy.Modify().
+			SetExpr("age", "+", "").
+			Where("id", "=", "user_id").
+			Render()
+		if err == nil {
+			t.Error("expected error for empty param")
+		}
+	})
+
+	t.Run("SetExpr error propagates", func(t *testing.T) {
+		_, err := soy.Modify().
+			SetExpr("nonexistent", "+", "increment").
+			Set("name", "new_name").
+			Where("id", "=", "user_id").
+			Render()
+		if err == nil {
+			t.Error("expected error to propagate through chain")
+		}
+	})
+}
+
 func TestUpdate_InstanceAccess(t *testing.T) {
 	sentinel.Tag("db")
 	sentinel.Tag("type")

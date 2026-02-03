@@ -53,6 +53,25 @@ func (ub *Update[T]) Set(field, param string) *Update[T] {
 	return ub
 }
 
+// SetExpr specifies a field to update with a computed expression.
+// The expression is a binary operation using the field itself, e.g. field = field + param.
+// Use this for atomic increments, decrements, and similar computed assignments.
+//
+// Example:
+//
+//	soy.Modify().
+//	    SetExpr("age", "+", "increment").
+//	    Where("id", "=", "user_id").
+//	    Exec(ctx, map[string]any{"increment": 1, "user_id": 123})
+//	// Generates: UPDATE users SET "age" = "age" + :increment WHERE "id" = :user_id
+func (ub *Update[T]) SetExpr(field, operator, param string) *Update[T] {
+	if ub.err != nil {
+		return ub
+	}
+	ub.builder, ub.err = setExprImpl(ub.instance, ub.builder, field, operator, param)
+	return ub
+}
+
 // Where adds a simple WHERE condition with field = param pattern.
 // Multiple calls are combined with AND.
 // IMPORTANT: At least one WHERE condition is required to prevent accidental full-table updates.
