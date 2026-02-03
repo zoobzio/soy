@@ -130,12 +130,16 @@ github.com/tklauser/numcpus v0.6.1 h1:ng9scYS7az0Bk4OZLvrNXNSAO2Pxr1XXRAPyjhIx+F
 github.com/tklauser/numcpus v0.6.1/go.mod h1:1XfjsgE2zo8GVw7POkMbHENHzVg3GzmoZ9fESEdAacY=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
-github.com/zoobzio/astql v1.0.5 h1:799pEEaMbT74EFfniDnbBdc6acE+kDw1xIJaPuU2i3k=
+github.com/zoobzio/astql v1.0.6 h1:im7wYc9M9HaqAaMDliZXAStir4YHpmgfpd9aaSLMl/o=
+github.com/zoobzio/astql v1.0.6/go.mod h1:I7yNnjuD3KxCoNGyBbz+zDxT/osgHaQ5RsHGdEKEwMw=
 github.com/zoobzio/atom v1.0.0 h1:vFFfheHPMJQztp+/BmTWTIRfixjojqmpD6uM1X6xkuo=
+github.com/zoobzio/atom v1.0.0/go.mod h1:+ciiuq93FK54xwtktR196qPqb2tyt643IUcL94ETk9s=
 github.com/zoobzio/capitan v1.0.0 h1:hEB8XX/FmtIDHKjjTJrUWXkDiZTYa/Jtd/qWO0yc2Dc=
+github.com/zoobzio/capitan v1.0.0/go.mod h1:UNZvqLPX2REzKLVfU4EfL9GRe6zddsj6aSWaqNUGAIw=
 github.com/zoobzio/dbml v1.0.0 h1:okeWcYbJu7tEXDXleZv7BLTLEE3rib324y12rfL8QJs=
 github.com/zoobzio/dbml v1.0.0/go.mod h1:CAX7TEjn+UPdwPrtJGBG23sXPfoNA246tqztDR3iV7Y=
 github.com/zoobzio/sentinel v1.0.2 h1:hTs5Ke2Vi0VgOkoHSJF9G3BYnxTQjMbvOH+qbbQLaoY=
+github.com/zoobzio/sentinel v1.0.2/go.mod h1:gtsD0AYlTEI8ajpEQ3azb7BDZicdsESOB1dJpQqgDKc=
 go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
 go.opentelemetry.io/auto/sdk v1.1.0/go.mod h1:3wSPjt5PWp2RhlCcmmOial7AvC4DQqZb7a7wCow3W8A=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 h1:jq9TW8u3so/bN+JPT166wjOI6/vQPF6Xe7nMNIltagk=

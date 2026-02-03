@@ -43,6 +43,13 @@ var operatorMap = map[string]astql.Operator{
 	"<#>": astql.VectorInnerProduct,
 	"<=>": astql.VectorCosineDistance,
 	"<+>": astql.VectorL1Distance,
+
+	// Arithmetic operators.
+	"+": "+",
+	"-": "-",
+	"*": "*",
+	"/": "/",
+	"%": "%",
 }
 
 // directionMap translates string directions to ASTQL directions.
@@ -734,6 +741,29 @@ func selectNullIfImpl(instance *astql.ASTQL, builder *astql.Builder, param1, par
 	}
 
 	return builder.SelectExpr(astql.As(astql.NullIf(p1, p2), alias)), nil
+}
+
+// --- Set Expression Implementations ---
+
+// setExprImpl adds a field update with a binary expression value for UPDATE queries.
+// Use this for computed assignments like `age = age + :increment`.
+func setExprImpl(instance *astql.ASTQL, builder *astql.Builder, field, operator, param string) (*astql.Builder, error) {
+	astqlOp, err := validateOperator(operator)
+	if err != nil {
+		return builder, err
+	}
+
+	f, err := instance.TryF(field)
+	if err != nil {
+		return builder, newFieldError(field, err)
+	}
+
+	p, err := instance.TryP(param)
+	if err != nil {
+		return builder, newParamError(param, err)
+	}
+
+	return builder.SetExpr(f, astql.BinaryExpr(f, astqlOp, p)), nil
 }
 
 // --- Binary Expression Implementations ---
