@@ -16,8 +16,6 @@ github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
-github.com/zoobzio/astql v1.0.5 h1:799pEEaMbT74EFfniDnbBdc6acE+kDw1xIJaPuU2i3k=
-github.com/zoobzio/astql v1.0.5/go.mod h1:I7yNnjuD3KxCoNGyBbz+zDxT/osgHaQ5RsHGdEKEwMw=
 github.com/zoobzio/astql v1.0.6 h1:im7wYc9M9HaqAaMDliZXAStir4YHpmgfpd9aaSLMl/o=
 github.com/zoobzio/astql v1.0.6/go.mod h1:I7yNnjuD3KxCoNGyBbz+zDxT/osgHaQ5RsHGdEKEwMw=
 github.com/zoobzio/atom v1.0.0 h1:vFFfheHPMJQztp+/BmTWTIRfixjojqmpD6uM1X6xkuo=
